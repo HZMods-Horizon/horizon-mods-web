@@ -121,7 +121,7 @@ export function page({ title, description, req, body, robots = false, turnstile 
 ${robots ? `<meta name="robots" content="noindex">` : ""}
 <link rel="icon" href="/favicon.svg">
 <script src="/theme.js?v=5"></script>
-<link rel="stylesheet" href="/site.css?v=10">
+<link rel="stylesheet" href="/site.css?v=12">
 </head>
 <body data-peek-show="${escape(tr("peek.show"))}" data-peek-hide="${escape(tr("peek.hide"))}" data-copied="${escape(tr("copied"))}" data-file-none="${escape(tr("file.none"))}">
 <a class="skip" href="#main">${escape(tr("skip"))}</a>
@@ -129,12 +129,14 @@ ${robots ? `<meta name="robots" content="noindex">` : ""}
 ${banner}
 ${nav(req)}
 <main id="main">${body}</main>
-<footer>
-  <a class="mark" href="/"><span class="pixel">horizon</span><span class="sub">mods</span></a>
-  <p>${escape(tr("foot.blurb"))} <a href="https://playhorizon.dev">playhorizon.dev</a>, <a href="https://github.com/horizon-rust/horizon">horizon</a>, <a href="https://github.com/horizon-rust/horizon-mods">horizon-mods</a>, <a href="https://github.com/horizon-rust/horizon-site">horizon-site</a>.</p>
-  <p class="foot-links"><a href="/docs">${escape(tr("foot.docs"))}</a> <a href="/privacy">${escape(tr("foot.privacy"))}</a> <a href="/docs/api">API</a> <button type="button" class="ghost" data-theme-toggle>${escape(tr("theme"))}</button></p>
-</footer>
 </div>
+<footer>
+  <div class="wrap">
+    <p>${escape(tr("foot.blurb"))} <a href="https://playhorizon.dev">playhorizon.dev</a>, <a href="https://github.com/horizon-rust/horizon">horizon</a>, <a href="https://github.com/horizon-rust/horizon-mods">horizon-mods</a>, <a href="https://github.com/horizon-rust/horizon-site">horizon-site</a>.</p>
+    <p class="foot-links"><a href="/docs">${escape(tr("foot.docs"))}</a> <a href="/privacy">${escape(tr("foot.privacy"))}</a> <a href="/docs/api">API</a> <a href="https://hzmods.lol">hzmods.lol</a> <a class="btn ghost" href="https://github.com/quomy-code/horizon-mods-web" rel="noreferrer noopener">${escape(tr("foot.source"))}</a> <button type="button" class="ghost" data-theme-toggle>${escape(tr("theme"))}</button></p>
+  </div>
+  <p class="foot-word" aria-hidden="true">HZMODS</p>
+</footer>
 <div class="modal" data-modal hidden>
   <div class="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="modal-title">
     <h2 id="modal-title">${escape(tr("modal.title"))}</h2>
@@ -512,9 +514,12 @@ export function renderAccount(req, profile, error = "") {
   <form method="post" action="/account/profile" enctype="multipart/form-data" class="stack wide">
     ${hidden("_csrf", req.actor.csrf)}
     <div class="edit-preview">
-      <div class="cover"${coverStyle}>${banner}</div>
+      <div class="cover"${coverStyle}>${banner}${user.banner_ext ? `<button class="ghost shot-clear" type="submit" name="remove_banner" value="1">${escape(tr("profile.removeBanner"))}</button>` : ""}</div>
       <div class="profile-head">
-        ${userFace(user)}
+        <div class="shot">
+          ${userFace(user)}
+          ${user.avatar_ext ? `<button class="ghost shot-clear" type="submit" name="remove_avatar" value="1">${escape(tr("profile.removeAvatar"))}</button>` : ""}
+        </div>
         <div class="profile-id">
           <h2>${escape(user.display_name || user.username)}</h2>
           <p class="mono">@${escape(user.username)}</p>
@@ -523,9 +528,7 @@ export function renderAccount(req, profile, error = "") {
     </div>
     <h2>${escape(tr("profile.images"))}</h2>
     ${fileField(tr, tr("profile.avatar"), "avatar", { accept: "image/png,image/jpeg,image/gif,image/webp" })}
-    ${user.avatar_ext ? check("remove_avatar", tr("profile.removeAvatar")) : ""}
     ${fileField(tr, tr("profile.banner"), "banner", { accept: "image/png,image/jpeg,image/gif,image/webp" })}
-    ${user.banner_ext ? check("remove_banner", tr("profile.removeBanner")) : ""}
     <h2>${escape(tr("profile.identity"))}</h2>
     ${field(tr("profile.display"), "display_name", user.display_name || "", { max: 40 })}
     ${field(tr("profile.tagline"), "tagline", user.tagline || "", { max: 80 })}

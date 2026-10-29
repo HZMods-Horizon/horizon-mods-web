@@ -548,20 +548,39 @@ html[data-theme-choice="system"] [data-theme-set="system"] {
 html[data-theme-choice="light"] [data-theme-set="light"]:hover,
 html[data-theme-choice="dark"] [data-theme-set="dark"]:hover,
 html[data-theme-choice="system"] [data-theme-set="system"]:hover { color: var(--on-face); }
-main { padding-bottom: var(--space-8); }
+main { padding-bottom: var(--space-6); }
 footer {
-  margin-top: var(--space-8);
-  padding: var(--space-6) 0 var(--space-7);
-  border-top: 1px solid var(--rule);
+  margin-top: var(--space-6);
+  padding: var(--space-7) 0 0;
+  border-top: var(--block-outline) solid var(--outline);
+  background: var(--surface);
   color: var(--muted);
   font-size: 13px;
   text-align: center;
+  overflow: hidden;
 }
-footer .mark { margin-bottom: var(--space-3); }
+footer .wrap { padding-bottom: 4px; }
 .foot-links { justify-content: center; }
-footer .mark .pixel { font-size: 22px; }
 .foot-links a { color: var(--ink-soft); text-decoration: none; font-weight: 500; }
 .foot-links a:hover { color: var(--accent); }
+.foot-links a.btn,
+.foot-links a.btn:hover { color: var(--ink); }
+.foot-word {
+  margin: 18px 0 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--pixel);
+  font-weight: 700;
+  font-size: clamp(88px, 21vw, 320px);
+  line-height: 0.74;
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: var(--plate);
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+  transform: translateY(0.16em);
+}
 
 .lang {
   display: inline-flex;
@@ -666,6 +685,7 @@ img.avatar {
 .card small.by { display: flex; align-items: center; gap: 6px; }
 .profile { display: grid; gap: 16px; }
 .cover {
+  position: relative;
   height: 220px;
   border-radius: var(--radius-plate);
   border: var(--block-outline) solid var(--outline);
@@ -675,11 +695,19 @@ img.avatar {
     var(--plate);
 }
 .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cover > .shot-clear {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+}
 .profile-head {
   display: flex;
-  gap: 16px;
-  align-items: flex-end;
-  margin-top: -56px;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  margin-top: -28px;
   padding: 0;
   position: relative;
 }
@@ -692,10 +720,12 @@ img.avatar {
   font-size: 40px;
   background: var(--face);
 }
-.profile-id { min-width: 0; flex: 1 1 180px; padding-bottom: 8px; }
+.profile-id { min-width: 0; width: min(100%, 36rem); flex: none; padding: 4px 0 0; }
 .profile-id h1, .profile-id h2 { margin: 0 0 4px; }
 .profile-id p { margin: 0 0 4px; color: var(--muted); }
-.profile-actions { margin-left: auto; padding-bottom: 10px; display: flex; gap: 8px; flex: none; }
+.profile-actions { margin: 0; padding: 0; display: flex; gap: 8px; flex: none; justify-content: center; }
+.shot { display: grid; justify-items: center; gap: 8px; }
+.shot-clear { width: auto; min-height: 32px; padding: 0 12px 2px; }
 .statbar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .stat {
   display: grid;
@@ -752,7 +782,7 @@ img.avatar {
 .settings-nav a.on { background: var(--face); color: var(--on-face); }
 .settings-main { min-width: 0; }
 .edit-preview .cover { height: 168px; }
-.edit-preview .profile-head { margin-top: -44px; }
+.edit-preview .profile-head { margin-top: -16px; }
 .edit-preview .profile-head .avatar { width: 88px; height: 88px; font-size: 28px; }
 .profile-links { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 16px 0 0; padding: 0; }
 .profile-links a {
@@ -1009,10 +1039,8 @@ input:focus, textarea:focus, select:focus {
   .settings-nav { position: static; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .settings-nav a { justify-content: center; padding: 0 6px; text-align: center; }
   .statbar { grid-template-columns: 1fr 1fr; }
-  .profile-head { flex-wrap: wrap; }
-  .profile-actions { flex: 1 1 100%; }
-  .profile-actions .btn,
-  .profile-actions button { width: 100%; }
+  .profile-head { margin-top: -16px; }
+  .profile > .profile-head .avatar { width: 96px; height: 96px; font-size: 32px; }
 }
 @media (max-width: 720px) {
   .top-row > .tools { display: none; }
