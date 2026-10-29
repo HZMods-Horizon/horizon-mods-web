@@ -106,7 +106,7 @@ test("реестр: аккаунт, проверка, индекс, обновл
     });
     assert.match(homeRuHeader.body, /lang="en"/);
     assert.match(home.body, /https:\/\/discord\.gg\/jRaVR4xdmb/);
-    assert.match(home.body, /site\.css\?v=19/);
+    assert.match(home.body, /site\.css\?v=20/);
     assert.match(home.body, /site\.js\?v=13/);
     assert.equal((await app.inject({ method: "GET", url: "/healthz" })).statusCode, 200);
     const css = await app.inject({ method: "GET", url: "/site.css" });
@@ -304,7 +304,7 @@ test("реестр: аккаунт, проверка, индекс, обновл
     assert.match(ownerPage.body, /class="gallery"/);
     assert.match(ownerPage.body, /Screenshots and video/);
     assert.match(ownerPage.body, /name="kind" value="video"/);
-    assert.match(ownerPage.body, /site\.css\?v=19/);
+    assert.match(ownerPage.body, /site\.css\?v=20/);
 
     const file = multipart({ version: "1.0.0", changelog: "первый", channel: "release" }, { name: "demo.hmod", bytes: hmod() });
     const uploaded = await app.inject({

@@ -131,7 +131,7 @@ export function page({ title, description, req, body, robots = false, turnstile 
 ${robots ? `<meta name="robots" content="noindex">` : ""}
 <link rel="icon" href="/favicon.svg">
 <script src="/theme.js?v=5"></script>
-<link rel="stylesheet" href="/site.css?v=19">
+<link rel="stylesheet" href="/site.css?v=20">
 </head>
 <body data-peek-show="${escape(tr("peek.show"))}" data-peek-hide="${escape(tr("peek.hide"))}" data-copied="${escape(tr("copied"))}" data-file-none="${escape(tr("file.none"))}">
 <a class="skip" href="#main">${escape(tr("skip"))}</a>
@@ -373,30 +373,23 @@ export function renderMods(req, data) {
     : blank(tr("mods.empty"));
   const kind = String(req.query.kind || "");
   const q = String(req.query.q || "");
-  const facets = [["", tr("kind.all")], ...KINDS.map((id) => [id, kindLabel(id, lang)])].map(([id, label]) => {
+  const modsHref = (page) => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
-    if (id) params.set("kind", id);
-    const href = params.size ? `/mods?${params}` : "/mods";
-    const on = kind === id;
-    return `<a href="${href}"${on ? ' class="on" aria-current="page"' : ""}>${escape(label)}</a>`;
-  }).join("");
+    if (kind) params.set("kind", kind);
+    if (page > 1) params.set("page", String(page));
+    const search = params.toString();
+    return search ? `/mods?${search}` : "/mods";
+  };
   const body = `${flashFrom(req.query, lang)}
   <h1>${escape(tr("mods.title"))}</h1>
-  <div class="browse">
-    <aside class="browse-side">
-      <nav class="facet" aria-label="${escape(tr("mods.kind"))}">${facets}</nav>
-      <form class="filters sheet" method="get" action="/mods">
-        ${field(tr("mods.search"), "q", req.query.q || "", { max: 80 })}
-        ${select(tr("mods.kind"), "kind", req.query.kind || "", kindOptions(lang, true))}
-        <button type="submit">${escape(tr("mods.find"))}</button>
-      </form>
-    </aside>
-    <div>
-      <div class="cards browse-list">${cards}</div>
-      <p class="pager">${escape(tr("mods.page", { page: data.page, pages: data.pages }))}${data.page > 1 ? ` <a href="/mods?page=${data.page - 1}">${escape(tr("mods.prev"))}</a>` : ""}${data.page < data.pages ? ` <a href="/mods?page=${data.page + 1}">${escape(tr("mods.next"))}</a>` : ""}</p>
-    </div>
-  </div>`;
+  <form class="filters sheet" method="get" action="/mods">
+    ${field(tr("mods.search"), "q", q, { max: 80 })}
+    ${select(tr("mods.kind"), "kind", kind, kindOptions(lang, true))}
+    <button type="submit">${escape(tr("mods.find"))}</button>
+  </form>
+  <div class="cards mods-list">${cards}</div>
+  <p class="pager">${escape(tr("mods.page", { page: data.page, pages: data.pages }))}${data.page > 1 ? ` <a href="${modsHref(data.page - 1)}">${escape(tr("mods.prev"))}</a>` : ""}${data.page < data.pages ? ` <a href="${modsHref(data.page + 1)}">${escape(tr("mods.next"))}</a>` : ""}</p>`;
   return page({ title: tr("mods.title"), req, body });
 }
 

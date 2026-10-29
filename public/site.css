@@ -1683,32 +1683,22 @@ footer .wrap { padding-bottom: 8px; }
   font-size: var(--text-ui);
 }
 .cards { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.browse {
+.mods-list { grid-template-columns: minmax(0, 1fr); }
+.mods-list .card > span {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 16px;
+  align-items: center;
 }
-.browse-side { display: grid; gap: 12px; }
-.facet {
-  display: grid;
-  gap: 4px;
-  padding: 8px;
-  background: var(--panel);
-  border: var(--block-outline) solid var(--outline);
-  box-shadow: inset 0 var(--block-bevel) 0 var(--bevel), inset 0 calc(var(--block-lip) * -1) 0 var(--lip);
+.mods-list .card b,
+.mods-list .card em { grid-column: 1; }
+.mods-list .card i,
+.mods-list .card small.by {
+  grid-column: 2;
+  justify-self: end;
+  text-align: right;
 }
-.facet a {
-  display: block;
-  min-height: 36px;
-  padding: 8px 10px;
-  color: var(--ink);
-  text-decoration: none;
-  font-family: var(--pixel);
-  font-weight: 600;
-}
-.facet a.on, .facet a[aria-current="page"] { background: var(--face); color: var(--on-face); }
-.browse-list { grid-template-columns: minmax(0, 1fr); }
+.filters > button { width: auto; min-width: 8rem; }
 .mod-head {
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr);
@@ -1732,7 +1722,10 @@ footer .wrap { padding-bottom: 8px; }
 .profile-actions { justify-content: flex-start; }
 .profile-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 860px) {
-  .browse, .mod-layout, .profile-layout { grid-template-columns: minmax(0, 1fr); }
+  .mod-layout, .profile-layout { grid-template-columns: minmax(0, 1fr); }
+  .mods-list .card > span { grid-template-columns: minmax(0, 1fr); }
+  .mods-list .card i,
+  .mods-list .card small.by { grid-column: 1; justify-self: start; text-align: left; }
   .mod-side { position: static; }
   .mod-head { grid-template-columns: 64px minmax(0, 1fr); }
   .mod-head .avatar, .mod-head img.avatar { width: 64px; height: 64px; }
