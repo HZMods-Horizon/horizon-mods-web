@@ -1,0 +1,10 @@
+ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name text NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bio text NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS accent text NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS links jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_ext text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS banner_ext text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_at timestamptz;
+UPDATE users SET email_verified_at = now() WHERE email_verified_at IS NULL;

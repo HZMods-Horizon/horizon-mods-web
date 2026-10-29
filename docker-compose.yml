@@ -1,0 +1,50 @@
+# The public port is Caddy only. The app listens on the compose network.
+# Postgres replaces the file database. The password comes from POSTGRES_PASSWORD in .env.
+
+services:
+  web:
+    build: .
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8080"
+      TRUST_PROXY: "true"
+      DATABASE_URL: postgres://horizon_mods:${POSTGRES_PASSWORD}@postgres:5432/horizon_mods
+      DATA_DIR: /data
+    volumes:
+      - modsdata:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8080"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: horizon_mods
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: horizon_mods
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U horizon_mods -d horizon_mods"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "8090:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  modsdata:
+  pgdata:
