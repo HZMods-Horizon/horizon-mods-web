@@ -286,6 +286,7 @@ test("страницы, документы, формы и отказы", { timeo
     assert.match(account.body, /data-swatch/);
     assert.match(account.body, /data-account-toggle/);
     assert.match(account.body, /data-account-menu/);
+    assert.match(account.body, /href="\/u\/ada_pages"/);
     assert.match(account.body, /href="\/settings"/);
     assert.match(account.body, /type="file"/);
     const settings = await app.inject({ method: "GET", url: "/settings", headers: { accept: "text/html", cookie: session } });
@@ -451,8 +452,8 @@ test("страницы, документы, формы и отказы", { timeo
       headers: { accept: "text/html", cookie: session },
     });
     assert.equal(versionPage.statusCode, 200, versionPage.body);
-    assert.match(versionPage.body, /name="file"/);
-    assert.match(versionPage.body, /name="shots"[^>]*multiple/);
+    assert.match(versionPage.body, /name="file"(?![^>]*accept=)/);
+    assert.match(versionPage.body, /name="shots"(?![^>]*accept=)[^>]*multiple/);
     assert.match(versionPage.body, /\.hnmod/);
     const versionCsrf = /name="_csrf" value="([^"]+)"/.exec(versionPage.body)?.[1];
     const horizon = "6f8c7a0e5d531d3834c4d0be4659a1db8e7e5c2a";

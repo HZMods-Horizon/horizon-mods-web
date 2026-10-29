@@ -75,7 +75,7 @@ function accountMenu(actor, tr) {
   return `<div class="account-menu">
     <button type="button" class="who" data-ui data-account-toggle aria-haspopup="true" aria-expanded="false" aria-label="${escape(tr("nav.menuAccount"))}">${userFace(actor, "sm")}<span>${escape(label)}</span></button>
     <div class="menu-pop" data-account-menu>
-      <a class="btn" data-ui href="/account">${escape(tr("nav.profile"))}</a>
+      <a class="btn" data-ui href="/u/${escape(actor.username)}">${escape(tr("nav.profile"))}</a>
       <a class="btn" data-ui href="/settings">${escape(tr("nav.settings"))}</a>
     </div>
   </div>`;
@@ -474,11 +474,11 @@ export function renderSubmit(req, csrf, values = {}, errs = []) {
 }
 
 const VERSION_FILE = {
-  mod: ["version.fileMod", ".hmod,application/zip"],
-  modpack: ["version.filePack", ".hpack,application/zip"],
-  resourcepack: ["version.filePackZip", ".zip,application/zip"],
-  shader: ["version.fileShader", ".hshader,application/zip"],
-  "native-mod": ["version.fileNative", ".hnmod,application/zip"],
+  mod: "version.fileMod",
+  modpack: "version.filePack",
+  resourcepack: "version.filePackZip",
+  shader: "version.fileShader",
+  "native-mod": "version.fileNative",
 };
 
 export function renderVersion(req, project, csrf, values = {}, errs = []) {
@@ -486,7 +486,7 @@ export function renderVersion(req, project, csrf, values = {}, errs = []) {
   const idHtml = `<span class="mono">${escape(project.id)}</span>`;
   const mark = "\u0000id\u0000";
   const lead = escape(tr("version.lead", { id: mark })).replace(mark, idHtml);
-  const [fileKey, accept] = VERSION_FILE[project.kind] || ["version.file", ""];
+  const fileKey = VERSION_FILE[project.kind] || "version.file";
   const native = project.kind === "native-mod" ? note("warn", tr("project.native"), lang) : "";
   const body = `<div class="center-col"><h1>${escape(tr("version.h1", { name: project.name }))}</h1>
   <p class="lead">${lead}</p>
@@ -497,8 +497,8 @@ export function renderVersion(req, project, csrf, values = {}, errs = []) {
     ${field(tr("version.version"), "version", values.version, { required: true, max: 64 })}
     ${select(tr("version.channel"), "channel", values.channel || "release", [["release", "release"], ["beta", "beta"]])}
     ${field(tr("version.changelog"), "changelog", values.changelog, { area: true, max: 8000 })}
-    ${fileField(tr, tr(fileKey), "file", { required: true, accept })}
-    ${fileField(tr, tr("version.shots"), "shots", { multiple: true, accept: "image/png,image/jpeg,image/gif,image/webp" })}
+    ${fileField(tr, tr(fileKey), "file", { required: true })}
+    ${fileField(tr, tr("version.shots"), "shots", { multiple: true })}
     <p>${escape(tr("version.shotsLead"))}</p>
     ${turnstileBox()}
     <button type="submit">${escape(tr("version.send"))}</button>

@@ -66,7 +66,7 @@ The footer word is `HZMODS`. The Discord invite `https://discord.gg/jRaVR4xdmb` 
 
 Do not bring back the water hover on buttons. Keep custom selects, custom alerts, the bilingual switch, follows, stats, the settings shell, the profile head, and the gallery. Do not set `borderRadius` to `999px`.
 
-Custom selects portal `.pick-menu` to `document.body` with `position: fixed` and z-index 20. Do not put the menu back to `position: absolute` inside `.pick`. The account menu is Profile (`/account`) and Settings (`/settings`). Logout sits beside it.
+Custom selects portal `.pick-menu` to `document.body` with `position: fixed` and z-index 20. Do not put the menu back to `position: absolute` inside `.pick`. The account menu is Profile (`/u/:username`) and Settings (`/settings`). Logout sits beside it. `/account` stays the profile editor.
 
 The header is one fixed row: the HZMODS mark, links, language, account, theme, and submit. Links fold into the menu at 1100px. Tools fold into the menu at 900px.
 
