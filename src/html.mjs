@@ -128,7 +128,7 @@ export function page({ title, description, req, body, robots = false, turnstile 
 ${robots ? `<meta name="robots" content="noindex">` : ""}
 <link rel="icon" href="/favicon.svg">
 <script src="/theme.js?v=5"></script>
-<link rel="stylesheet" href="/site.css?v=17">
+<link rel="stylesheet" href="/site.css?v=18">
 </head>
 <body data-peek-show="${escape(tr("peek.show"))}" data-peek-hide="${escape(tr("peek.hide"))}" data-copied="${escape(tr("copied"))}" data-file-none="${escape(tr("file.none"))}">
 <a class="skip" href="#main">${escape(tr("skip"))}</a>
@@ -154,7 +154,7 @@ ${banner}
     </p>
   </div>
 </div>
-<script src="/site.js?v=12" defer></script>
+<script src="/site.js?v=13" defer></script>
 ${turnstile ? `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ""}
 </body>
 </html>`;
@@ -226,6 +226,30 @@ function fileField(tr, label, name, opts = {}) {
   const multiple = opts.multiple ? " multiple" : "";
   const many = opts.multiple ? ` data-file-many="${escape(tr("file.many"))}"` : "";
   return `<label class="file"><span>${escape(label)}</span><span class="file-row"><input class="file-input" type="file" name="${escape(name)}"${accept}${required}${multiple}${many}><span class="file-btn">${escape(tr("file.choose"))}</span><span class="file-name">${escape(tr("file.none"))}</span></span></label>`;
+}
+
+function dropZone(tr) {
+  const mb = Math.floor(config.maxUploadBytes / (1024 * 1024));
+  return `<div class="drop" data-drop>
+    <p class="drop-title">${escape(tr("drop.title"))}</p>
+    <p class="drop-hint">${escape(tr("drop.hint", { mb }))}</p>
+    <label class="drop-hit">
+      <input class="file-input" type="file" multiple data-drop-add>
+      <span class="file-btn">${escape(tr("file.choose"))}</span>
+    </label>
+    <ul class="drop-list" data-drop-list></ul>
+    <p class="drop-status" data-drop-status hidden></p>
+  </div>
+  <input type="file" name="file" hidden data-pack-file>
+  <input type="file" name="shots" multiple hidden data-pack-shots>`;
+}
+
+function packForm(tr, { action, archive = false, inner }) {
+  const mb = Math.floor(config.maxUploadBytes / (1024 * 1024));
+  return `<form method="post" action="${action}" enctype="multipart/form-data" class="stack" data-pack data-part="${config.maxUploadBytes}" data-archive="${archive ? "1" : "0"}" data-msg-primary="${escape(tr("drop.primary"))}" data-msg-shot="${escape(tr("drop.shot"))}" data-msg-video="${escape(tr("drop.video"))}" data-msg-remove="${escape(tr("drop.remove"))}" data-msg-big="${escape(tr("drop.big", { name: "{name}", mb }))}" data-msg-shotbig="${escape(tr("drop.shotBig", { name: "{name}" }))}" data-msg-videobig="${escape(tr("drop.videoBig", { name: "{name}" }))}" data-msg-extra="${escape(tr("drop.extra", { name: "{name}" }))}" data-msg-full="${escape(tr("drop.full"))}" data-msg-part="${escape(tr("drop.part", { n: "{n}", m: "{m}" }))}" data-msg-fail="${escape(tr("drop.fail"))}" data-msg-need="${escape(tr("drop.need"))}">
+    ${inner}
+    ${dropZone(tr)}
+    <p>${escape(tr("version.shotsLead"))}</p>`;
 }
 
 function letter(name) {
@@ -457,7 +481,7 @@ export function renderSubmit(req, csrf, values = {}, errs = []) {
   const body = `<div class="center-col"><h1>${escape(tr("submit.h1"))}</h1>
   <p class="lead">${escape(tr("submit.lead"))}</p>
   ${errors(errs, lang)}
-  <section class="sheet narrow"><form method="post" action="/submit" enctype="multipart/form-data" class="stack">
+  <section class="sheet narrow">${packForm(tr, { action: "/submit", inner: `
     ${hidden("_csrf", csrf)}
     ${field(tr("submit.id"), "id", values.id, { required: true, max: 64 })}
     ${select(tr("submit.kind"), "kind", values.kind || "mod", kindOptions(lang))}
@@ -470,10 +494,7 @@ export function renderSubmit(req, csrf, values = {}, errs = []) {
     ${select(tr("submit.game"), "game", values.game || config.gameVersions[0], config.gameVersions.map((id) => [id, id]))}
     ${field(tr("version.version"), "version", values.version, { max: 64 })}
     ${select(tr("version.channel"), "channel", values.channel || "release", [["release", "release"], ["beta", "beta"]])}
-    ${field(tr("version.changelog"), "changelog", values.changelog, { area: true, max: 8000 })}
-    ${fileField(tr, tr("version.file"), "file")}
-    ${fileField(tr, tr("version.shots"), "shots", { multiple: true })}
-    <p>${escape(tr("version.shotsLead"))}</p>
+    ${field(tr("version.changelog"), "changelog", values.changelog, { area: true, max: 8000 })}` })}
     ${turnstileBox()}
     <button type="submit">${escape(tr("submit.create"))}</button>
   </form></section></div>`;
@@ -499,14 +520,12 @@ export function renderVersion(req, project, csrf, values = {}, errs = []) {
   <p class="lead">${lead}</p>
   ${native}
   ${errors(errs, lang)}
-  <section class="sheet narrow"><form method="post" action="/mods/${escape(project.id)}/version" enctype="multipart/form-data" class="stack">
+  <section class="sheet narrow">${packForm(tr, { action: `/mods/${escape(project.id)}/version`, archive: true, inner: `
     ${hidden("_csrf", csrf)}
     ${field(tr("version.version"), "version", values.version, { required: true, max: 64 })}
     ${select(tr("version.channel"), "channel", values.channel || "release", [["release", "release"], ["beta", "beta"]])}
     ${field(tr("version.changelog"), "changelog", values.changelog, { area: true, max: 8000 })}
-    ${fileField(tr, tr(fileKey), "file", { required: true })}
-    ${fileField(tr, tr("version.shots"), "shots", { multiple: true })}
-    <p>${escape(tr("version.shotsLead"))}</p>
+    <p class="drop-kind">${escape(tr(fileKey))}</p>` })}
     ${turnstileBox()}
     <button type="submit">${escape(tr("version.send"))}</button>
   </form></section></div>`;

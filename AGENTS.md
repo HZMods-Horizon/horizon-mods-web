@@ -70,7 +70,7 @@ Custom selects portal `.pick-menu` to `document.body` with `position: fixed` and
 
 The header is one fixed row: the HZMODS mark, links, language, account, theme, and submit. Links fold into the menu at 1100px. Tools fold into the menu at 900px.
 
-Asset cache in `src/html.mjs`: `theme.js?v=5`, `site.css?v=17`, `site.js?v=12`. When one of those files changes, bump its query and the matching assertion in `test/http.test.mjs`.
+Asset cache in `src/html.mjs`: `theme.js?v=5`, `site.css?v=18`, `site.js?v=13`. When one of those files changes, bump its query and the matching assertion in `test/http.test.mjs`.
 
 A version file input uses `fileField`. Several files set `multiple` and `data-file-many` from `file.many` (`{n}` files). `public/site.js` shows that count.
 
@@ -88,7 +88,7 @@ Do not edit `001_init.sql` or `002_profiles.sql`. Add a new file. `005_native.sq
 
 The version form posts to `/mods/:id/version`. `readVersionUpload` takes one `file` and up to six `shots`. Images are PNG, JPEG, GIF, or WebP, 4 MB each, six per project. One video is MP4 or WebM, 8 MB, and is added from the project page, not the version form. Precheck screenshots, then `uploadVersion`, then `addMedia` only when the version was accepted. A failed archive must not consume gallery slots. The API upload stays one file through `readMultipart`.
 
-Multipart limits in `server.mjs` allow eight files (one archive plus six shots). The version route body limit is `maxUploadBytes` plus six times 4 MB plus 1 MB. Default `MAX_UPLOAD_BYTES` is 64 MB.
+Multipart limits in `server.mjs` allow eight files. One request stays within `maxUploadBytes` (default 100 MB, the Cloudflare ceiling) plus 1 MB for fields. The browser splits extra files into later parts.
 
 ## Native mods
 

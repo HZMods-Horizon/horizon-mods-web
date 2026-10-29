@@ -125,7 +125,7 @@ const config = {
   turnstileSecret,
   turnstileTest: turnstileSecret === TEST_PASS || turnstileSecret === TEST_FAIL,
   turnstileAlwaysFail: turnstileSecret === TEST_FAIL,
-  maxUploadBytes: integer("MAX_UPLOAD_BYTES", 64 * 1024 * 1024, 1024, 64 * 1024 * 1024),
+  maxUploadBytes: integer("MAX_UPLOAD_BYTES", 100 * 1024 * 1024, 1024, 100 * 1024 * 1024),
   gameVersions,
   checkBin: process.env.HORIZON_MOD_CHECK_BIN?.trim() || "",
   checkRequired: flag("HORIZON_MOD_CHECK_REQUIRED", false),

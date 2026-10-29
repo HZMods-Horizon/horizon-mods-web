@@ -80,6 +80,16 @@ function formError(err) {
   return null;
 }
 
+function packWanted(req) {
+  return String(req.headers["x-hz-pack"] || "") === "1";
+}
+
+function packJson(reply, status, payload) {
+  return reply.code(status).type("application/json; charset=utf-8").send(payload);
+}
+
+const uploadBodyLimit = config.maxUploadBytes + 1024 * 1024;
+
 async function show(reply, html, status = 200) {
   return sendHtml(reply, html, { status, robots: true });
 }
@@ -210,10 +220,12 @@ export async function registerWeb(app) {
       await addMedia(req.actor, req.params.id, files.file, fields);
       invalidateIndex();
       await notifyMedia(req.params.id);
+      if (packWanted(req)) return packJson(reply, 201, { ok: true });
       return redirect(reply, `/mods/${req.params.id}?ok=media`);
     } catch (err) {
       const http = formError(err);
       if (!http || http.status >= 500) throw err;
+      if (packWanted(req)) return packJson(reply, http.status, { error: http.message });
       const again = await viewProject(req.params.id, req.actor);
       if (!again) throw err;
       return show(reply, renderProject(req, again, pageCsrf(req, reply), [{ message: http.message }]), http.status);
@@ -249,7 +261,7 @@ export async function registerWeb(app) {
     return show(reply, renderSubmit(req, pageCsrf(req, reply)));
   });
 
-  app.post("/submit", { bodyLimit: config.maxUploadBytes + 6 * 4 * 1024 * 1024 + 1024 * 1024 }, async (req, reply) => {
+  app.post("/submit", { bodyLimit: uploadBodyLimit }, async (req, reply) => {
     if (!gate(req, reply)) return;
     let body = req.body || {};
     let file = null;
@@ -265,6 +277,7 @@ export async function registerWeb(app) {
       const created = await createProject(req.actor, projectInput(body, body.id, body.kind));
       if (!file) {
         if (shots.length) throw new HttpError(400, "invalid", "Приложите файл");
+        if (packWanted(req)) return packJson(reply, 201, { id: created.id, url: `/mods/${created.id}/version?ok=project` });
         return redirect(reply, `/mods/${created.id}/version?ok=project`);
       }
       await assertTurnstile(body["cf-turnstile-response"], clientIp(req));
@@ -278,15 +291,18 @@ export async function registerWeb(app) {
       const result = await uploadVersion(req.actor, created.id, body, file, req.headers["idempotency-key"] || body.idempotency);
       const payload = result.replay || result;
       if (payload.status >= 400) {
-        const view = await viewProject(created.id, req.actor);
         const errs = payload.body?.check?.errors?.length ? payload.body.check.errors : [{ message: "Проверка не пройдена" }];
+        if (packWanted(req)) return packJson(reply, payload.status, { error: errs.map((item) => item.message).join(" "), id: created.id, url: `/mods/${created.id}` });
+        const view = await viewProject(created.id, req.actor);
         return show(reply, renderVersion(req, view.project, pageCsrf(req, reply), body, errs), payload.status);
       }
       for (const shot of shots) await addMedia(req.actor, created.id, shot, { kind: "image" });
+      if (packWanted(req)) return packJson(reply, 201, { id: created.id, url: `/mods/${created.id}?ok=version` });
       return redirect(reply, `/mods/${created.id}?ok=version`);
     } catch (err) {
       const http = formError(err);
       if (!http || http.status >= 500) throw err;
+      if (packWanted(req)) return packJson(reply, http.status, { error: http.message });
       if (body.id && (file || shots.length)) {
         const view = await viewProject(body.id, req.actor);
         if (view?.owner) {
@@ -304,7 +320,7 @@ export async function registerWeb(app) {
     return show(reply, renderVersion(req, view.project, pageCsrf(req, reply)));
   });
 
-  app.post("/mods/:id/version", { bodyLimit: config.maxUploadBytes + 6 * 4 * 1024 * 1024 + 1024 * 1024 }, async (req, reply) => {
+  app.post("/mods/:id/version", { bodyLimit: uploadBodyLimit }, async (req, reply) => {
     if (!gate(req, reply)) return;
     const view = await viewProject(req.params.id, req.actor);
     if (!view?.owner) return show(reply, renderError(req, 404, "Страница не ваша"), 404);
@@ -325,13 +341,16 @@ export async function registerWeb(app) {
       const payload = result.replay || result;
       if (payload.status >= 400) {
         const errs = payload.body?.check?.errors?.length ? payload.body.check.errors : [{ message: "Проверка не пройдена" }];
+        if (packWanted(req)) return packJson(reply, payload.status, { error: errs.map((item) => item.message).join(" "), id: req.params.id, url: `/mods/${req.params.id}` });
         return show(reply, renderVersion(req, view.project, pageCsrf(req, reply), fields, errs), payload.status);
       }
       for (const shot of shots) await addMedia(req.actor, req.params.id, shot, { kind: "image" });
+      if (packWanted(req)) return packJson(reply, 201, { id: req.params.id, url: `/mods/${req.params.id}?ok=version` });
       return redirect(reply, `/mods/${req.params.id}?ok=version`);
     } catch (err) {
       const http = formError(err);
       if (!http || http.status >= 500) throw err;
+      if (packWanted(req)) return packJson(reply, http.status, { error: http.message });
       return show(reply, renderVersion(req, view.project, pageCsrf(req, reply), {}, [{ message: http.message }]), http.status);
     }
   });

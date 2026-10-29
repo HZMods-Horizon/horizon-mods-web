@@ -176,7 +176,7 @@ test("страницы, документы, формы и отказы", { timeo
     assert.equal(missingHtml.statusCode, 404);
     assert.match(mainOf(missingHtml.body), /На главную|Home/);
     assert.match(missingHtml.body, /https:\/\/discord\.gg\/jRaVR4xdmb/);
-    assert.match(missingHtml.body, /site\.css\?v=17/);
+    assert.match(missingHtml.body, /site\.css\?v=18/);
     const missingJson = await app.inject({ method: "GET", url: "/no-such-page", headers: { accept: "application/json" } });
     assert.equal(missingJson.statusCode, 404);
     assert.equal(missingJson.json().error.code, "not_found");
@@ -370,6 +370,8 @@ test("страницы, документы, формы и отказы", { timeo
     assert.match(submit.body, /value="native-mod"/);
     assert.match(submit.body, /name="kind"/);
     assert.match(submit.body, /name="file"/);
+    assert.match(submit.body, /data-pack/);
+    assert.match(submit.body, /data-drop/);
     assert.match(submit.body, /name="shots"[^>]*multiple/);
     assert.equal(/name="file"[^>]*accept=/.test(submit.body), false);
     assert.match(submit.body, /enctype="multipart\/form-data"/);

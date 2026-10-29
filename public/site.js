@@ -387,3 +387,181 @@
     input.addEventListener("input", paint);
   });
 })();
+
+(function () {
+  var IMAGE = /\.(png|jpe?g|gif|webp)$/i;
+  var VIDEO = /\.(mp4|webm)$/i;
+  var IMAGE_MAX = 4 * 1024 * 1024;
+  var VIDEO_MAX = 8 * 1024 * 1024;
+
+  function kindOf(file) {
+    var type = file.type || "";
+    if (type === "image/png" || type === "image/jpeg" || type === "image/gif" || type === "image/webp" || IMAGE.test(file.name)) return "shot";
+    if (type === "video/mp4" || type === "video/webm" || VIDEO.test(file.name)) return "video";
+    return "archive";
+  }
+
+  function fill(template, vars) {
+    return String(template || "").replace(/\{(\w+)\}/g, function (_, name) {
+      return vars[name] == null ? "" : String(vars[name]);
+    });
+  }
+
+  function sizeText(bytes) {
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + " MB";
+    if (bytes >= 1024) return Math.ceil(bytes / 1024) + " KB";
+    return bytes + " B";
+  }
+
+  function postPack(url, data) {
+    return fetch(url, {
+      method: "POST",
+      body: data,
+      credentials: "same-origin",
+      headers: { "x-hz-pack": "1", accept: "application/json" },
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (!res.ok || body.error) {
+          var err = new Error(body.error || res.statusText || "error");
+          err.body = body;
+          throw err;
+        }
+        return body;
+      });
+    });
+  }
+
+  document.querySelectorAll("form[data-pack]").forEach(function (form) {
+    var zone = form.querySelector("[data-drop]");
+    var list = form.querySelector("[data-drop-list]");
+    var status = form.querySelector("[data-drop-status]");
+    var picker = form.querySelector("[data-drop-add]");
+    var part = Number(form.dataset.part) || 104857600;
+    var items = [];
+    if (!zone || !list || !picker) return;
+
+    function say(text) {
+      if (!status) return;
+      status.hidden = !text;
+      status.textContent = text || "";
+    }
+
+    function paint() {
+      list.textContent = "";
+      items.forEach(function (item, index) {
+        var row = document.createElement("li");
+        row.className = "drop-row" + (item.bad ? " is-bad" : "");
+        var tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = item.bad ? "!" : (item.role === "shot" ? form.dataset.msgShot : item.role === "video" ? form.dataset.msgVideo : form.dataset.msgPrimary);
+        var name = document.createElement("span");
+        name.className = "drop-name";
+        name.textContent = item.bad || item.file.name;
+        var size = document.createElement("span");
+        size.className = "drop-size";
+        size.textContent = sizeText(item.file.size);
+        var remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "ghost";
+        remove.setAttribute("data-ui", "");
+        remove.textContent = form.dataset.msgRemove || "Remove";
+        remove.addEventListener("click", function () {
+          items.splice(index, 1);
+          paint();
+        });
+        row.append(tag, name, size, remove);
+        list.append(row);
+      });
+    }
+
+    function addFiles(files) {
+      Array.prototype.forEach.call(files || [], function (file) {
+        var role = kindOf(file);
+        var bad = "";
+        if (role === "archive" && file.size > part) bad = fill(form.dataset.msgBig, { name: file.name });
+        else if (role === "shot" && file.size > IMAGE_MAX) bad = fill(form.dataset.msgShotbig, { name: file.name });
+        else if (role === "video" && file.size > VIDEO_MAX) bad = fill(form.dataset.msgVideobig, { name: file.name });
+        else if (role === "archive" && items.some(function (item) { return item.role === "archive" && !item.bad; })) bad = fill(form.dataset.msgExtra, { name: file.name });
+        else if (role === "video" && items.some(function (item) { return item.role === "video" && !item.bad; })) bad = fill(form.dataset.msgExtra, { name: file.name });
+        else if (role === "shot" && items.filter(function (item) { return item.role === "shot" && !item.bad; }).length >= 6) bad = fill(form.dataset.msgFull, { name: file.name });
+        items.push({ file: file, role: role, bad: bad });
+      });
+      paint();
+      picker.value = "";
+    }
+
+    picker.addEventListener("change", function () { addFiles(picker.files); });
+    zone.addEventListener("dragover", function (event) {
+      event.preventDefault();
+      zone.classList.add("is-over");
+    });
+    zone.addEventListener("dragleave", function () { zone.classList.remove("is-over"); });
+    zone.addEventListener("drop", function (event) {
+      event.preventDefault();
+      zone.classList.remove("is-over");
+      addFiles(event.dataTransfer && event.dataTransfer.files);
+    });
+
+    form.addEventListener("submit", function (event) {
+      if (!window.fetch || !window.FormData) return;
+      event.preventDefault();
+      var good = items.filter(function (item) { return !item.bad; });
+      var bad = items.find(function (item) { return item.bad; });
+      var archive = good.find(function (item) { return item.role === "archive"; });
+      if (bad) {
+        say(bad.bad);
+        return;
+      }
+      if (form.dataset.archive === "1" && !archive) {
+        say(form.dataset.msgNeed || "");
+        return;
+      }
+      var extras = good.filter(function (item) { return item !== archive; });
+      var room = part - (archive ? archive.file.size : 0);
+      var first = [];
+      var rest = [];
+      extras.forEach(function (item) {
+        if (!archive || item.role === "video" || item.file.size > room) rest.push(item);
+        else {
+          first.push(item);
+          room -= item.file.size;
+        }
+      });
+      var jobs = [{ kind: "main" }].concat(rest.map(function (item) { return { kind: "media", item: item }; }));
+      var button = form.querySelector("button[type=submit]");
+      if (button) button.disabled = true;
+      var step = 0;
+      function next(id) {
+        if (step >= jobs.length) return Promise.resolve(id);
+        step += 1;
+        say(fill(form.dataset.msgPart, { n: step, m: jobs.length }));
+        var job = jobs[step - 1];
+        if (job.kind === "main") {
+          var data = new FormData();
+          new FormData(form).forEach(function (value, key) {
+            if (key === "file" || key === "shots" || key === "pack") return;
+            if (value instanceof File) return;
+            data.append(key, value);
+          });
+          if (archive) data.append("file", archive.file, archive.file.name);
+          first.forEach(function (item) {
+            if (item.role === "shot") data.append("shots", item.file, item.file.name);
+          });
+          return postPack(form.action, data).then(function (body) { return next(body); });
+        }
+        var media = new FormData();
+        var csrf = form.querySelector('input[name="_csrf"]');
+        if (csrf) media.append("_csrf", csrf.value);
+        media.append("kind", job.item.role === "video" ? "video" : "image");
+        media.append("file", job.item.file, job.item.file.name);
+        return postPack(form.action.replace(/\/version$/, "").replace(/\/submit$/, "/mods/" + id.id) + "/media", media).then(function () { return next(id); });
+      }
+      next(null).then(function (body) {
+        if (body && body.url) window.location.assign(body.url);
+      }).catch(function (err) {
+        say((form.dataset.msgFail || "") + " " + (err.message || ""));
+        if (button) button.disabled = false;
+      });
+    });
+  });
+})();
