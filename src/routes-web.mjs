@@ -25,6 +25,8 @@ import { blobPath } from "./files.mjs";
 import {
   renderAccount,
   renderAdmin,
+  renderAppPrivacy,
+  renderAppTerms,
   renderApiDocs,
   renderDashboard,
   renderDocs,
@@ -570,6 +572,8 @@ export async function registerWeb(app) {
   app.get("/docs/review", async (req, reply) => sendHtml(reply, renderReviewDocs(req)));
   app.get("/docs/api", async (req, reply) => sendHtml(reply, renderApiDocs(req)));
   app.get("/privacy", async (req, reply) => sendHtml(reply, renderPrivacy(req)));
+  app.get("/app/terms", async (req, reply) => sendHtml(reply, renderAppTerms(req)));
+  app.get("/app/privacy", async (req, reply) => sendHtml(reply, renderAppPrivacy(req)));
 
   app.get("/updates", async (req, reply) => {
     const result = req.query.installed
@@ -597,7 +601,7 @@ export async function registerWeb(app) {
   });
 
   app.get("/sitemap.xml", async (_req, reply) => {
-    const urls = ["/", "/mods", "/updates", "/docs", "/docs/api", "/docs/review", "/privacy"];
+    const urls = ["/", "/mods", "/updates", "/docs", "/docs/api", "/docs/review", "/privacy", "/app/terms", "/app/privacy"];
     const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((item) => `<url><loc>${config.publicUrl}${item}</loc></url>`).join("\n")}\n</urlset>\n`;
     return reply.header("cache-control", "public, max-age=300").type("application/xml").send(body);
   });

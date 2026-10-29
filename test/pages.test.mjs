@@ -23,6 +23,9 @@ process.env.TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
 process.env.TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA";
 process.env.RATE_REGISTER_PER_HOUR = "40";
 process.env.RATE_LOGIN_PER_15MIN = "40";
+process.env.RATE_IP_PER_MIN = "800";
+process.env.RATE_ANON_READ_PER_MIN = "400";
+process.env.RATE_USER_READ_PER_MIN = "400";
 
 const { buildApp } = await import("../src/server.mjs");
 const { closeDb } = await import("../src/db.mjs");
@@ -76,7 +79,7 @@ test("страницы, документы, формы и отказы", { timeo
   let app;
   try {
     app = await buildApp();
-    const htmlPages = ["/", "/mods", "/updates", "/docs", "/docs/api", "/docs/review", "/privacy", "/login", "/register"];
+    const htmlPages = ["/", "/mods", "/updates", "/docs", "/docs/api", "/docs/review", "/privacy", "/app/terms", "/app/privacy", "/login", "/register"];
     for (const url of htmlPages) {
       const res = await app.inject({ method: "GET", url, headers: { accept: "text/html" } });
       assert.equal(res.statusCode, 200, url);
@@ -88,7 +91,7 @@ test("страницы, документы, формы и отказы", { timeo
       assert.equal(res.body.includes("name=\"email\""), false, url);
     }
 
-    for (const url of ["/docs", "/docs/api", "/docs/review", "/privacy"]) {
+    for (const url of ["/docs", "/docs/api", "/docs/review", "/privacy", "/app/terms", "/app/privacy"]) {
       const ru = await app.inject({
         method: "GET",
         url,
@@ -106,6 +109,8 @@ test("страницы, документы, формы и отказы", { timeo
     assert.match(mainOf((await app.inject({ method: "GET", url: "/docs", headers: { accept: "text/html" } })).body), /How the registry works/);
     assert.match(mainOf((await app.inject({ method: "GET", url: "/docs/review", headers: { accept: "text/html" } })).body), /Review before release/);
     assert.match(mainOf((await app.inject({ method: "GET", url: "/privacy", headers: { accept: "text/html" } })).body), /password hash/);
+    assert.match(mainOf((await app.inject({ method: "GET", url: "/app/terms", headers: { accept: "text/html" } })).body), /closed channel/);
+    assert.match(mainOf((await app.inject({ method: "GET", url: "/app/privacy", headers: { accept: "text/html" } })).body), /does not keep a member list/);
 
     const openapi = await app.inject({ method: "GET", url: "/api/v1/openapi.json" });
     assert.equal(openapi.statusCode, 200);
@@ -146,6 +151,8 @@ test("страницы, документы, формы и отказы", { timeo
     assert.match(robots.body, /Disallow: \/admin/);
     const sitemap = await app.inject({ method: "GET", url: "/sitemap.xml" });
     assert.match(sitemap.body, /\/docs\/api/);
+    assert.match(sitemap.body, /\/app\/terms/);
+    assert.match(sitemap.body, /\/app\/privacy/);
     assert.equal(CYRILLIC.test(sitemap.body), false);
     const security = await app.inject({ method: "GET", url: "/.well-known/security.txt" });
     assert.match(security.body, /^Contact: mailto:/);

@@ -926,6 +926,43 @@ export function renderPrivacy(req) {
   return page({ title: tr("privacy.title"), req, body });
 }
 
+export function renderAppTerms(req) {
+  const tr = (key, vars) => t("en", key, vars);
+  const body = `<h1>${escape(tr("appTerms.h1"))}</h1>
+  <p class="lead">${escape(tr("appTerms.lead"))}</p>
+  <section class="sheet">
+    <h2>${escape(tr("appTerms.useH"))}</h2>
+    <p>${escape(tr("appTerms.use"))}</p>
+    <h2>${escape(tr("appTerms.closedH"))}</h2>
+    <p>${escape(tr("appTerms.closed"))}</p>
+    <h2>${escape(tr("appTerms.rulesH"))}</h2>
+    <p>${escape(tr("appTerms.rules"))}</p>
+    <p class="row"><a href="/app/privacy">${escape(tr("appTerms.privacy"))}</a> <a href="https://discord.gg/jRaVR4xdmb" rel="noreferrer noopener">Discord</a></p>
+  </section>`;
+  return page({ title: tr("appTerms.title"), description: tr("appTerms.lead"), req, body });
+}
+
+export function renderAppPrivacy(req) {
+  const tr = (key, vars) => t("en", key, vars);
+  const body = `<h1>${escape(tr("appPrivacy.h1"))}</h1>
+  <p class="lead">${escape(tr("appPrivacy.lead"))}</p>
+  <section class="sheet">
+    <h2>${escape(tr("appPrivacy.joinH"))}</h2>
+    <p>${escape(tr("appPrivacy.join"))}</p>
+    <h2>${escape(tr("appPrivacy.closedH"))}</h2>
+    <p>${escape(tr("appPrivacy.closed"))}</p>
+    <h2>${escape(tr("appPrivacy.cmdH"))}</h2>
+    <p>${escape(tr("appPrivacy.cmd"))}</p>
+    <h2>${escape(tr("appPrivacy.storeH"))}</h2>
+    <p>${escape(tr("appPrivacy.store"))}</p>
+    <h2>${escape(tr("appPrivacy.feedH"))}</h2>
+    <p>${escape(tr("appPrivacy.feed"))}</p>
+    <p>${escape(tr("appPrivacy.who"))}</p>
+    <p class="row"><a href="/app/terms">${escape(tr("appPrivacy.terms"))}</a> <a href="/privacy">${escape(tr("appPrivacy.site"))}</a> <a href="https://discord.gg/jRaVR4xdmb" rel="noreferrer noopener">Discord</a></p>
+  </section>`;
+  return page({ title: tr("appPrivacy.title"), description: tr("appPrivacy.lead"), req, body });
+}
+
 export function renderMessage(req, title, text) {
   const lang = langOf(req);
   const heading = localize(lang, title);
