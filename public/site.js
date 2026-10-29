@@ -40,7 +40,7 @@
 
   var groups = [
     [".desk, .nav-panel", "a:not([data-ui]), button:not([data-ui])"],
-    [".row", "a.btn:not([data-ui]), a.nav-link, a.who, button:not([data-ui])"],
+    [".row, .split", "a.btn:not([data-ui]), a.nav-link, a.who, button:not([data-ui])"],
     [".foot-links, .pager", "a:not([data-ui]), button:not([data-ui])"],
     [".lang", "a"],
     [".who-row", "a:not([data-ui]), button:not([data-ui])"],

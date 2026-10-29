@@ -121,7 +121,7 @@ export function page({ title, description, req, body, robots = false, turnstile 
 ${robots ? `<meta name="robots" content="noindex">` : ""}
 <link rel="icon" href="/favicon.svg">
 <script src="/theme.js?v=5"></script>
-<link rel="stylesheet" href="/site.css?v=9">
+<link rel="stylesheet" href="/site.css?v=10">
 </head>
 <body data-peek-show="${escape(tr("peek.show"))}" data-peek-hide="${escape(tr("peek.hide"))}" data-copied="${escape(tr("copied"))}" data-file-none="${escape(tr("file.none"))}">
 <a class="skip" href="#main">${escape(tr("skip"))}</a>
@@ -145,7 +145,7 @@ ${nav(req)}
     </p>
   </div>
 </div>
-<script src="/site.js?v=7" defer></script>
+<script src="/site.js?v=8" defer></script>
 ${turnstile ? `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ""}
 </body>
 </html>`;
@@ -300,7 +300,7 @@ export function renderHome(req, recent) {
       <p class="kicker">${escape(tr("home.kicker"))}</p>
       <h1>${escape(tr("home.h1"))}</h1>
       <p class="lead">${escape(tr("home.lead"))}</p>
-      <p class="row">${navLink("/mods", tr("home.catalog"), true)} ${navLink("/docs", tr("home.how"))}</p>
+      <p class="split">${navLink("/mods", tr("home.catalog"), true)} <a class="btn ghost" href="/docs">${escape(tr("home.how"))}</a></p>
     </div>
     <aside class="stage" aria-hidden="true">
       <div class="stage-top"><span class="mono">index.json</span><span class="tag">schema 1</span></div>
@@ -373,7 +373,7 @@ export function renderProject(req, view) {
   const { lang, tr } = use(req);
   const project = view.project;
   const ownerBits = view.owner
-    ? `<p class="row"><a class="btn" href="/mods/${escape(project.id)}/version">${escape(tr("project.upload"))}</a> <a class="ghost btn" href="/mods/${escape(project.id)}/edit">${escape(tr("project.edit"))}</a></p>`
+    ? `<p class="split"><a class="btn" href="/mods/${escape(project.id)}/version">${escape(tr("project.upload"))}</a> <a class="btn ghost" href="/mods/${escape(project.id)}/edit">${escape(tr("project.edit"))}</a></p>`
     : "";
   const body = `${flashFrom(req.query, lang)}
   <p class="kicker">${escape(kindLabel(project.kind, lang))} · ${escape(statusLabel(project.status, lang))} · ${escape(project.game)}</p>
@@ -389,7 +389,7 @@ export function renderProject(req, view) {
 
 export function renderSubmit(req, csrf, values = {}, errs = []) {
   const { lang, tr } = use(req);
-  const body = `<h1>${escape(tr("submit.h1"))}</h1>
+  const body = `<div class="center-col"><h1>${escape(tr("submit.h1"))}</h1>
   <p class="lead">${escape(tr("submit.lead"))}</p>
   ${errors(errs, lang)}
   <section class="sheet narrow"><form method="post" action="/submit" class="stack">
@@ -404,7 +404,7 @@ export function renderSubmit(req, csrf, values = {}, errs = []) {
     ${field(tr("submit.source"), "source", values.source, { required: true, type: "url" })}
     ${select(tr("submit.game"), "game", values.game || config.gameVersions[0], config.gameVersions.map((id) => [id, id]))}
     <button type="submit">${escape(tr("submit.create"))}</button>
-  </form></section>`;
+  </form></section></div>`;
   return page({ title: tr("submit.title"), req, body, robots: true });
 }
 
@@ -413,7 +413,7 @@ export function renderVersion(req, project, csrf, values = {}, errs = []) {
   const idHtml = `<span class="mono">${escape(project.id)}</span>`;
   const mark = "\u0000id\u0000";
   const lead = escape(tr("version.lead", { id: mark })).replace(mark, idHtml);
-  const body = `<h1>${escape(tr("version.h1", { name: project.name }))}</h1>
+  const body = `<div class="center-col"><h1>${escape(tr("version.h1", { name: project.name }))}</h1>
   <p class="lead">${lead}</p>
   ${errors(errs, lang)}
   <section class="sheet narrow"><form method="post" action="/mods/${escape(project.id)}/version" enctype="multipart/form-data" class="stack">
@@ -424,14 +424,14 @@ export function renderVersion(req, project, csrf, values = {}, errs = []) {
     ${fileField(tr, tr("version.file"), "file", { required: true })}
     ${turnstileBox()}
     <button type="submit">${escape(tr("version.send"))}</button>
-  </form></section>`;
+  </form></section></div>`;
   return page({ title: tr("version.title"), req, body, robots: true, turnstile: true });
 }
 
 export function renderEdit(req, project, csrf, errs = []) {
   const { lang, tr } = use(req);
   const locked = project.status === "published";
-  const body = `<h1>${escape(tr("edit.h1", { name: project.name }))}</h1>
+  const body = `<div class="center-col"><h1>${escape(tr("edit.h1", { name: project.name }))}</h1>
   ${errors(errs, lang)}
   <section class="sheet narrow">
   ${locked ? note("warn", tr("edit.locked"), lang) : ""}
@@ -444,13 +444,13 @@ export function renderEdit(req, project, csrf, errs = []) {
     ${select(tr("submit.license"), "license", project.license, LICENSES.map((id) => [id, id]))}
     ${field(tr("edit.source"), "source", project.source_url, { required: true, type: "url" })}
     <button type="submit">${escape(tr("edit.save"))}</button>
-  </form></section>`;
+  </form></section></div>`;
   return page({ title: tr("edit.title"), req, body, robots: true });
 }
 
 export function renderLogin(req, csrf, values = {}, error = "") {
   const { lang, tr } = use(req);
-  const body = `<h1>${escape(tr("login.h1"))}</h1>
+  const body = `<div class="center-col"><h1>${escape(tr("login.h1"))}</h1>
   ${flashFrom(req.query, lang)}
   ${error ? note("bad", error, lang) : ""}
   <section class="sheet narrow">
@@ -463,13 +463,13 @@ export function renderLogin(req, csrf, values = {}, error = "") {
     <button type="submit">${escape(tr("login.submit"))}</button>
   </form>
   <p class="row"><a class="btn ghost" href="/register">${escape(tr("login.new"))}</a></p>
-  </section>`;
+  </section></div>`;
   return page({ title: tr("login.title"), req, body, robots: true, turnstile: true });
 }
 
 export function renderRegister(req, csrf, values = {}, error = "") {
   const { lang, tr } = use(req);
-  const body = `<h1>${escape(tr("register.h1"))}</h1>
+  const body = `<div class="center-col"><h1>${escape(tr("register.h1"))}</h1>
   <p class="lead">${escape(tr("register.lead"))}</p>
   ${error ? note("bad", error, lang) : ""}
   <section class="sheet narrow">
@@ -481,7 +481,7 @@ export function renderRegister(req, csrf, values = {}, error = "") {
     <button type="submit">${escape(tr("register.submit"))}</button>
   </form>
   <p class="row"><a class="btn ghost" href="/login">${escape(tr("nav.login"))}</a></p>
-  </section>`;
+  </section></div>`;
   return page({ title: tr("register.title"), req, body, robots: true, turnstile: true });
 }
 
@@ -548,7 +548,7 @@ export function renderSettings(req, { tab = "account", keys = [], secret = "", e
   const langBtn = (code, label) => `<a class="${lang === code ? "btn" : "btn ghost"}" href="/lang/${code}?next=${nextSite}" hreflang="${code}" lang="${code}">${escape(label)}</a>`;
   const themeBtn = (id, label) => `<button type="button" data-theme-set="${id}" aria-pressed="false">${escape(label)}</button>`;
   const accountPane = `${secret ? alertHtml("ok", `<p>${escape(tr("account.secret"))} <span class="mono" data-copy-text>${escape(secret)}</span></p><button type="button" class="ghost" data-ui data-copy>${escape(tr("copy"))}</button>`, lang) : ""}
-  <section class="sheet narrow">
+  <section class="sheet">
   <h2>${escape(tr("account.password"))}</h2>
   <form method="post" action="/account/password" class="stack">
     ${hidden("_csrf", req.actor.csrf)}
@@ -588,7 +588,7 @@ export function renderDashboard(req, projects) {
   const cards = projects.length
     ? projects.map((item) => `<a class="card" href="/mods/${escape(item.id)}">${letter(item.name)}<span><b>${escape(item.name)}</b> <span class="tag">${escape(statusLabel(item.status, lang))}</span><em>${escape(item.summary)}</em><small>${escape(tr("dash.count", { kind: kindLabel(item.kind, lang), count: Number(item.version_count) || 0 }))}</small></span></a>`).join("")
     : blank(tr("dash.empty"));
-  const body = `${flashFrom(req.query, lang)}<h1>${escape(tr("dash.h1"))}</h1><p class="row"><a class="btn" href="/submit">${escape(tr("dash.new"))}</a> <a href="/account">${escape(tr("dash.account"))}</a> <a href="/settings">${escape(tr("nav.settings"))}</a></p><div class="cards">${cards}</div>`;
+  const body = `${flashFrom(req.query, lang)}<h1>${escape(tr("dash.h1"))}</h1><p class="split"><a class="btn" href="/submit">${escape(tr("dash.new"))}</a> <a class="btn ghost" href="/account">${escape(tr("dash.account"))}</a> <a class="btn ghost" href="/settings">${escape(tr("nav.settings"))}</a></p><div class="cards">${cards}</div>`;
   return page({ title: tr("dash.title"), req, body, robots: true });
 }
 
@@ -639,7 +639,7 @@ export function renderAdmin(req, users, audit, error = "") {
   <h2>${escape(tr("admin.people"))}</h2>
   <div class="stack wide">${rows}</div>
   </section>
-  <section class="sheet narrow">
+  <section class="sheet">
   <h2>${escape(tr("admin.revoke"))}</h2>
   <form method="post" action="/admin/revoke" class="stack">
     ${hidden("_csrf", req.actor.csrf)}
@@ -782,7 +782,7 @@ export function renderApiDocs(req) {
   const game = config.gameVersions[0];
   const body = `<h1>${escape(tr("api.h1"))}</h1>
   <p class="lead">${escape(tr("api.base"))}: <span class="mono">${escape(config.publicUrl)}</span>. ${escape(tr("api.lead"))}</p>
-  <p class="row"><a class="btn" href="/api/v1/openapi.json">${escape(tr("api.spec"))}</a> <a class="btn ghost" href="/api/v1/limits">${escape(tr("api.limits"))}</a></p>
+  <p class="split"><a class="btn" href="/api/v1/openapi.json">${escape(tr("api.spec"))}</a> <a class="btn ghost" href="/api/v1/limits">${escape(tr("api.limits"))}</a></p>
   <section class="sheet">
     <h2>${escape(tr("api.key"))}</h2>
     <p class="code"><span class="mono">Authorization: Bearer hmk_live_…</span></p>
@@ -822,7 +822,7 @@ export function renderUpdates(req, result) {
   const rows = (result?.updates || []).map((item) => item.update
     ? `<li><b>${escape(item.id)}</b> ${escape(item.current)} → ${escape(item.version)} <a href="${escape(item.file.url)}">${escape(item.file.name)}</a></li>`
     : `<li><b>${escape(item.id)}</b> ${escape(item.current || "—")} — ${escape(tr("updates.none"))}</li>`).join("");
-  const body = `<h1>${escape(tr("updates.h1"))}</h1>
+  const body = `<div class="center-col"><h1>${escape(tr("updates.h1"))}</h1>
   <p class="lead">${escape(tr("updates.lead"))}</p>
   <section class="sheet narrow">
   <form class="stack" method="get" action="/updates">
@@ -832,7 +832,7 @@ export function renderUpdates(req, result) {
     <button type="submit">${escape(tr("updates.check"))}</button>
   </form>
   </section>
-  ${result ? `<section class="sheet"><ul class="plain">${rows || `<li>${escape(tr("updates.empty"))}</li>`}</ul></section>` : ""}`;
+  ${result ? `<section class="sheet"><ul class="plain">${rows || `<li>${escape(tr("updates.empty"))}</li>`}</ul></section>` : ""}</div>`;
   return page({ title: tr("updates.title"), req, body });
 }
 
