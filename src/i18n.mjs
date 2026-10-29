@@ -213,7 +213,7 @@ const DICT = {
     "settings.account.lead": "Пароль и ключи API этого аккаунта. Секрет ключа показывается один раз.",
     "settings.site.lead": "Язык и тема хранятся в этом браузере.",
     "settings.lang": "Язык",
-    "settings.lang.lead": "Язык интерфейса на этом сайте.",
+    "settings.lang.lead": "По умолчанию английский. Русский включается здесь.",
     "settings.lang.ru": "Русский",
     "settings.lang.en": "English",
     "settings.theme": "Тема",
@@ -591,7 +591,7 @@ const DICT = {
     "settings.account.lead": "Password and API keys for this account. A key secret is shown once.",
     "settings.site.lead": "Language and theme stay in this browser.",
     "settings.lang": "Language",
-    "settings.lang.lead": "Interface language on this site.",
+    "settings.lang.lead": "English is the default. Russian is optional.",
     "settings.lang.ru": "Русский",
     "settings.lang.en": "English",
     "settings.theme": "Theme",
@@ -968,23 +968,19 @@ const FRAGMENTS = [
 export function langOf(req) {
   const cookie = req?.cookies?.hm_lang;
   if (cookie === "en" || cookie === "ru") return cookie;
-  const header = String(req?.headers?.["accept-language"] || "").toLowerCase();
-  const en = header.indexOf("en");
-  const ru = header.indexOf("ru");
-  if (en !== -1 && (ru === -1 || en < ru)) return "en";
-  return "ru";
+  return "en";
 }
 
 export function t(lang, key, vars) {
-  const pack = DICT[lang] || DICT.ru;
-  let text = pack[key] ?? DICT.ru[key] ?? key;
+  const pack = DICT[lang] || DICT.en;
+  let text = pack[key] ?? DICT.en[key] ?? key;
   if (!vars) return text;
   return text.replace(/\{(\w+)\}/g, (_, name) => (vars[name] == null ? "" : String(vars[name])));
 }
 
 export function has(lang, key) {
-  const pack = DICT[lang] || DICT.ru;
-  return Object.prototype.hasOwnProperty.call(pack, key) || Object.prototype.hasOwnProperty.call(DICT.ru, key);
+  const pack = DICT[lang] || DICT.en;
+  return Object.prototype.hasOwnProperty.call(pack, key) || Object.prototype.hasOwnProperty.call(DICT.en, key);
 }
 
 export function localize(lang, message) {

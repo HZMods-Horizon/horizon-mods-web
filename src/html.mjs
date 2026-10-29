@@ -42,7 +42,7 @@ function note(kind, text, lang) {
   return alertHtml(kind, `<p>${escape(localize(lang, text))}</p>`, lang);
 }
 
-export function flashFrom(query = {}, lang = "ru") {
+export function flashFrom(query = {}, lang = "en") {
   const parts = [];
   if (query.ok && has(lang, `ok.${query.ok}`)) parts.push(note("ok", t(lang, `ok.${query.ok}`), lang));
   if (query.err && has(lang, `err.${query.err}`)) parts.push(note("bad", t(lang, `err.${query.err}`), lang));
@@ -60,7 +60,7 @@ function langSwitch(req, lang) {
     const on = code === lang ? ' class="on" aria-current="true"' : "";
     return `<a href="/lang/${code}?next=${next}" hreflang="${code}" lang="${code}"${on}>${label}</a>`;
   };
-  return `<nav class="lang" aria-label="${escape(t(lang, "lang.label"))}">${item("ru", "RU")}${item("en", "EN")}</nav>`;
+  return `<nav class="lang" aria-label="${escape(t(lang, "lang.label"))}">${item("en", "EN")}${item("ru", "RU")}</nav>`;
 }
 
 function accountMenu(actor, tr) {
@@ -647,7 +647,7 @@ export function renderSettings(req, { tab = "account", keys = [], secret = "", e
   const sitePane = `<section class="sheet">
   <h2>${escape(tr("settings.lang"))}</h2>
   <p class="lead">${escape(tr("settings.lang.lead"))}</p>
-  <p class="row">${langBtn("ru", tr("settings.lang.ru"))} ${langBtn("en", tr("settings.lang.en"))}</p>
+  <p class="row">${langBtn("en", tr("settings.lang.en"))} ${langBtn("ru", tr("settings.lang.ru"))}</p>
   <h2>${escape(tr("settings.theme"))}</h2>
   <p class="lead">${escape(tr("settings.theme.lead"))}</p>
   <p class="row">${themeBtn("light", tr("settings.theme.light"))} ${themeBtn("dark", tr("settings.theme.dark"))} ${themeBtn("system", tr("settings.theme.system"))}</p>

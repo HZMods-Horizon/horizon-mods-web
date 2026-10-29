@@ -52,7 +52,7 @@ IDs are text UUIDs. `jsonb` columns are written with `JSON.stringify(...)` and `
 
 ## Languages
 
-The UI is bilingual. Russian is the default. English is the cookie `hm_lang`. A new user-facing string needs both a `ru` key and an `en` key.
+The UI is bilingual. English is the default. Russian is optional and only the cookie `hm_lang=ru` turns it on. A missing cookie stays English, including when `Accept-Language` is Russian. A new user-facing string needs both a `ru` key and an `en` key. Missing keys fall back to the English dict.
 
 These stay English in both dicts, and the page renderer forces `t("en", ...)`: docs, `/privacy`, `/app/terms`, `/app/privacy`. `README.md`, `LEGAL.md`, `.env.example`, `docker-compose.yml`, and `examples/` contain no Cyrillic. `test/pages.test.mjs` checks that.
 

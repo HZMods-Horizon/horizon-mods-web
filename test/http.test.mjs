@@ -95,9 +95,16 @@ test("реестр: аккаунт, проверка, индекс, обновл
     app = await buildApp();
     const home = await app.inject({ method: "GET", url: "/", headers: { accept: "text/html" } });
     assert.equal(home.statusCode, 200);
-    assert.match(home.body, /Неофициальный|неофициальный/);
+    assert.match(home.body, /unofficial/i);
+    assert.equal(home.body.includes("неофициальный"), false);
     assert.match(home.body, /Mojang/);
-    assert.match(home.body, /lang="ru"/);
+    assert.match(home.body, /lang="en"/);
+    const homeRuHeader = await app.inject({
+      method: "GET",
+      url: "/",
+      headers: { accept: "text/html", "accept-language": "ru-RU,ru;q=0.9" },
+    });
+    assert.match(homeRuHeader.body, /lang="en"/);
     assert.match(home.body, /https:\/\/discord\.gg\/jRaVR4xdmb/);
     assert.match(home.body, /site\.css\?v=14/);
     assert.match(home.body, /site\.js\?v=10/);
@@ -117,7 +124,7 @@ test("реестр: аккаунт, проверка, индекс, обновл
     assert.match(mods.body, /class="pick"/);
     assert.match(mods.body, /name="kind"/);
     assert.match(mods.body, /data-modal/);
-    assert.match(mods.body, /Выбрать файл|Файл не выбран|data-modal/);
+    assert.match(mods.body, /Choose file|No file chosen/);
     const updatesPage = await app.inject({ method: "GET", url: "/updates" });
     assert.match(updatesPage.body, /name="channel"/);
     assert.match(updatesPage.body, /class="sheet/);
@@ -295,7 +302,7 @@ test("реестр: аккаунт, проверка, индекс, обновл
     });
     assert.equal(ownerPage.statusCode, 200, ownerPage.body);
     assert.match(ownerPage.body, /class="gallery"/);
-    assert.match(ownerPage.body, /Скриншоты и видео/);
+    assert.match(ownerPage.body, /Screenshots and video/);
     assert.match(ownerPage.body, /name="kind" value="video"/);
     assert.match(ownerPage.body, /site\.css\?v=14/);
 
