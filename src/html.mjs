@@ -93,6 +93,7 @@ function nav(req) {
   if (actor) links.push(navLink("/dashboard", tr("nav.dashboard"), false, onPath(req, "/dashboard")));
   if (actor?.scopes?.includes("review:write")) links.push(navLink("/review", tr("nav.queue"), false, onPath(req, "/review")));
   if (actor?.scopes?.includes("admin:write")) links.push(navLink("/admin", tr("nav.admin"), false, onPath(req, "/admin")));
+  const discord = `<a class="btn discord" href="https://discord.gg/jRaVR4xdmb" rel="noreferrer noopener"><svg class="pixel-discord" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 0h2v1H4zM10 0h2v1H10zM2 1h12v1H2zM2 2h12v1H2zM1 3h14v1H1zM1 4h14v1H1zM1 5h14v1H1zM0 6h16v1H0zM0 7h3v1H0zM6 7h4v1H6zM13 7h3v1H13zM0 8h3v1H0zM6 8h4v1H6zM13 8h3v1H13zM0 9h3v1H0zM6 9h4v1H6zM13 9h3v1H13zM0 10h16v1H0zM0 11h16v1H0zM0 12h16v1H0zM0 13h16v1H0zM2 14h4v1H2zM10 14h4v1H10zM3 15h2v1H3zM11 15h2v1H11z"/></svg><span>${escape(tr("foot.discord"))}</span></a>`;
   const submit = navLink("/submit", tr("nav.submit"), true, onPath(req, "/submit"));
   const theme = `<button type="button" class="ghost theme-toggle" data-ui data-theme-toggle>${escape(tr("theme"))}</button>`;
   const session = actor
@@ -100,7 +101,7 @@ function nav(req) {
        <form method="post" action="/logout"><input type="hidden" name="_csrf" value="${escape(actor.csrf || "")}"><button class="ghost" type="submit">${escape(tr("nav.logout"))}</button></form>`
     : `${navLink("/login", tr("nav.login"), false, onPath(req, "/login"))}${navLink("/register", tr("nav.account"), false, onPath(req, "/register"))}`;
   const items = links.join("");
-  const tools = `${langSwitch(req, lang)}<div class="who-row">${session}</div>${theme}${submit}`;
+  const tools = `${langSwitch(req, lang)}<div class="who-row">${session}</div>${theme}${discord}${submit}`;
   const q = escape(req.query?.q || "");
   const search = `<form class="nav-search" method="get" action="/mods" role="search"><input type="search" name="q" value="${q}" placeholder="${escape(tr("mods.search"))}" aria-label="${escape(tr("mods.search"))}"></form>`;
   return `<header class="top">
@@ -131,7 +132,7 @@ export function page({ title, description, req, body, robots = false, turnstile 
 ${robots ? `<meta name="robots" content="noindex">` : ""}
 <link rel="icon" href="/favicon.svg">
 <script src="/theme.js?v=5"></script>
-<link rel="stylesheet" href="/site.css?v=20">
+<link rel="stylesheet" href="/site.css?v=21">
 </head>
 <body data-peek-show="${escape(tr("peek.show"))}" data-peek-hide="${escape(tr("peek.hide"))}" data-copied="${escape(tr("copied"))}" data-file-none="${escape(tr("file.none"))}">
 <a class="skip" href="#main">${escape(tr("skip"))}</a>

@@ -62,15 +62,15 @@ Runtime HTTP errors stay Russian. `localize()` translates them for the English U
 
 Light `:root` is the default. Dark comes from `prefers-color-scheme` and `[data-theme="dark"]`. Keep the Horizon tokens in `public/site.css`, including `--page #ece7f7`, `--face #5b3fd6`, and `--radius-plate 12px` on the token line. The Blocks pass after that squares the corners, uses Pixelify for headings, the mark, buttons, and `.foot-word`, and paints the original stone tile. Geist stays the paragraph font. Do not copy the horizon-site stylesheet, mark, or pictures. `public/stone-*.png` and `public/scene-*.svg` are original.
 
-The footer word is `HZMODS`. The Discord invite `https://discord.gg/jRaVR4xdmb` is in the footer, not the navbar. Source link: `https://github.com/HZMods-Horizon/horizon-mods-web`.
+The footer word is `HZMODS`. The Discord invite `https://discord.gg/jRaVR4xdmb` is a highlighted navbar button and stays in the footer too. Source link: `https://github.com/HZMods-Horizon/horizon-mods-web`.
 
 Do not bring back the water hover on buttons. Keep custom selects, custom alerts, the bilingual switch, follows, stats, the settings shell, the profile head, and the gallery. Do not set `borderRadius` to `999px`.
 
 Custom selects portal `.pick-menu` to `document.body` with `position: fixed` and z-index 20. Do not put the menu back to `position: absolute` inside `.pick`. The account menu is Profile (`/u/:username`) and Settings (`/settings`). Logout sits beside it. `/account` stays the profile editor.
 
-The header is one fixed row: the HZMODS mark, links, language, account, theme, and submit. Links fold into the menu at 1100px. Tools fold into the menu at 900px.
+The header is one fixed row: the HZMODS mark, links, language, account, theme, a highlighted Discord button, and submit. Links fold into the menu at 1100px. Tools fold into the menu at 900px.
 
-Asset cache in `src/html.mjs`: `theme.js?v=5`, `site.css?v=20`, `site.js?v=13`. When one of those files changes, bump its query and the matching assertion in `test/http.test.mjs`.
+Asset cache in `src/html.mjs`: `theme.js?v=5`, `site.css?v=21`, `site.js?v=13`. When one of those files changes, bump its query and the matching assertion in `test/http.test.mjs`.
 
 The public pages follow Modrinth's layout: a search field in the bar, a catalog with a kind column and project cards, and a mod page with the title block plus a side panel. Colors, type, and square panels stay Horizon.
 

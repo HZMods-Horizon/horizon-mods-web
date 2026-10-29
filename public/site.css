@@ -1478,6 +1478,15 @@ h3, .card b, button, .btn, .nav-link { font-weight: 600; }
 .tools .btn,
 .tools .ghost,
 .theme-toggle { min-height: 32px; padding: 0 12px 2px; }
+a.btn.discord { gap: 8px; }
+.pixel-discord {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  shape-rendering: crispEdges;
+  image-rendering: pixelated;
+}
 .mob > summary {
   min-height: 40px;
   padding: 0 12px;
