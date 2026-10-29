@@ -49,8 +49,15 @@ export function flashFrom(query = {}, lang = "en") {
   return parts.join("");
 }
 
-function navLink(href, label, primary = false) {
-  return `<a class="${primary ? "btn" : "nav-link"}" href="${href}">${escape(label)}</a>`;
+function onPath(req, href) {
+  const path = String(req?.url || "/").split("?")[0];
+  return path === href || path.startsWith(`${href}/`);
+}
+
+function navLink(href, label, primary = false, current = false) {
+  const cls = primary ? "btn" : "nav-link";
+  const here = current ? ' aria-current="page"' : "";
+  return `<a class="${cls}" href="${href}"${here}>${escape(label)}</a>`;
 }
 
 function langSwitch(req, lang) {
@@ -78,31 +85,32 @@ function nav(req) {
   const { lang, tr } = use(req);
   const actor = req.actor;
   const links = [
-    navLink("/mods", tr("nav.mods")),
-    navLink("/updates", tr("nav.updates")),
-    navLink("/docs/api", tr("nav.api")),
-    navLink("/docs/review", tr("nav.review")),
+    navLink("/mods", tr("nav.mods"), false, onPath(req, "/mods")),
+    navLink("/updates", tr("nav.updates"), false, onPath(req, "/updates")),
+    navLink("/docs/api", tr("nav.api"), false, onPath(req, "/docs/api")),
+    navLink("/docs/review", tr("nav.review"), false, onPath(req, "/docs/review")),
   ];
-  if (actor) links.push(navLink("/dashboard", tr("nav.dashboard")));
-  if (actor?.scopes?.includes("review:write")) links.push(navLink("/review", tr("nav.queue")));
-  if (actor?.scopes?.includes("admin:write")) links.push(navLink("/admin", tr("nav.admin")));
-  links.push(navLink("/submit", tr("nav.submit"), true));
+  if (actor) links.push(navLink("/dashboard", tr("nav.dashboard"), false, onPath(req, "/dashboard")));
+  if (actor?.scopes?.includes("review:write")) links.push(navLink("/review", tr("nav.queue"), false, onPath(req, "/review")));
+  if (actor?.scopes?.includes("admin:write")) links.push(navLink("/admin", tr("nav.admin"), false, onPath(req, "/admin")));
+  const submit = navLink("/submit", tr("nav.submit"), true, onPath(req, "/submit"));
+  const theme = `<button type="button" class="ghost theme-toggle" data-ui data-theme-toggle>${escape(tr("theme"))}</button>`;
   const session = actor
     ? `${accountMenu(actor, tr)}
        <form method="post" action="/logout"><input type="hidden" name="_csrf" value="${escape(actor.csrf || "")}"><button class="ghost" type="submit">${escape(tr("nav.logout"))}</button></form>`
-    : `${navLink("/login", tr("nav.login"))}${navLink("/register", tr("nav.account"))}`;
+    : `${navLink("/login", tr("nav.login"), false, onPath(req, "/login"))}${navLink("/register", tr("nav.account"), false, onPath(req, "/register"))}`;
   const items = links.join("");
-  const tools = `${langSwitch(req, lang)}<div class="who-row">${session}</div>`;
+  const tools = `${langSwitch(req, lang)}<div class="who-row">${session}</div>${theme}${submit}`;
   return `<header class="top">
     <div class="top-row">
-      <a class="mark" href="/"><span class="pixel">horizon</span><span class="sub">mods</span></a>
+      <a class="mark" href="/"><span class="pixel">HZMODS</span></a>
+      <nav class="desk">${items}</nav>
       <div class="tools">${tools}</div>
       <details class="mob">
         <summary>${escape(tr("nav.menu"))}</summary>
         <div class="nav-panel">${items}${tools}</div>
       </details>
     </div>
-    <nav class="desk">${items}</nav>
   </header>`;
 }
 
@@ -120,19 +128,19 @@ export function page({ title, description, req, body, robots = false, turnstile 
 ${robots ? `<meta name="robots" content="noindex">` : ""}
 <link rel="icon" href="/favicon.svg">
 <script src="/theme.js?v=5"></script>
-<link rel="stylesheet" href="/site.css?v=14">
+<link rel="stylesheet" href="/site.css?v=16">
 </head>
 <body data-peek-show="${escape(tr("peek.show"))}" data-peek-hide="${escape(tr("peek.hide"))}" data-copied="${escape(tr("copied"))}" data-file-none="${escape(tr("file.none"))}">
 <a class="skip" href="#main">${escape(tr("skip"))}</a>
+${nav(req)}
 <div class="wrap">
 ${banner}
-${nav(req)}
 <main id="main">${body}</main>
 </div>
 <footer>
   <div class="wrap">
-    <p>${escape(tr("foot.blurb"))} <a href="https://playhorizon.dev">playhorizon.dev</a>, <a href="https://github.com/horizon-rust/horizon">horizon</a>, <a href="https://github.com/horizon-rust/horizon-mods">horizon-mods</a>, <a href="https://github.com/horizon-rust/horizon-site">horizon-site</a>.</p>
-    <p class="foot-links"><a href="/docs">${escape(tr("foot.docs"))}</a> <a href="/privacy">${escape(tr("foot.privacy"))}</a> <a href="/docs/api">API</a> <a href="https://hzmods.lol">hzmods.lol</a> <a href="https://discord.gg/jRaVR4xdmb" rel="noreferrer noopener">${escape(tr("foot.discord"))}</a> <a class="btn ghost" href="https://github.com/HZMods-Horizon/horizon-mods-web" rel="noreferrer noopener">${escape(tr("foot.source"))}</a> <button type="button" class="ghost" data-theme-toggle>${escape(tr("theme"))}</button></p>
+    <p class="foot-disclaimer">${escape(tr("foot.blurb"))} <a href="https://playhorizon.dev">playhorizon.dev</a>, <a href="https://github.com/horizon-rust/horizon">horizon</a>, <a href="https://github.com/horizon-rust/horizon-mods">horizon-mods</a>, <a href="https://github.com/horizon-rust/horizon-site">horizon-site</a>.</p>
+    <nav class="foot-links" aria-label="${escape(tr("foot.docs"))}"><a href="/docs">${escape(tr("foot.docs"))}</a> <a href="/privacy">${escape(tr("foot.privacy"))}</a> <a href="/docs/api">API</a> <a href="https://hzmods.lol">hzmods.lol</a> <a href="https://discord.gg/jRaVR4xdmb" rel="noreferrer noopener">${escape(tr("foot.discord"))}</a> <a href="https://github.com/HZMods-Horizon/horizon-mods-web" rel="noreferrer noopener">${escape(tr("foot.source"))}</a> <button type="button" class="ghost" data-theme-toggle>${escape(tr("theme"))}</button></nav>
   </div>
   <p class="foot-word" aria-hidden="true">HZMODS</p>
 </footer>
@@ -146,7 +154,7 @@ ${nav(req)}
     </p>
   </div>
 </div>
-<script src="/site.js?v=10" defer></script>
+<script src="/site.js?v=11" defer></script>
 ${turnstile ? `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ""}
 </body>
 </html>`;
@@ -299,22 +307,18 @@ export function renderHome(req, recent) {
     : blank(tr("home.empty"));
   const body = `${flashFrom(req.query, lang)}
   <section class="hero">
-    <div>
+    <div class="hero-copy">
       <p class="kicker">${escape(tr("home.kicker"))}</p>
       <h1>${escape(tr("home.h1"))}</h1>
       <p class="lead">${escape(tr("home.lead"))}</p>
       <p class="split">${navLink("/mods", tr("home.catalog"), true)} <a class="btn ghost" href="/docs">${escape(tr("home.how"))}</a></p>
     </div>
-    <aside class="stage" aria-hidden="true">
-      <div class="stage-top"><span class="mono">index.json</span><span class="tag">schema 1</span></div>
-      <p class="stage-id">unofficial-horizon-mods</p>
-      <ul class="stage-list">
-        <li><span><i></i>${escape(tr("home.stage.mods"))}</span><em>${escape(tr("home.stage.published"))}</em></li>
-        <li><span><i></i>${escape(tr("home.stage.updates"))}</span><em>${escape(tr("home.stage.semver"))}</em></li>
-        <li><span><i></i>${escape(tr("home.stage.review"))}</span><em>${escape(tr("home.stage.before"))}</em></li>
-      </ul>
-    </aside>
   </section>
+  <ol class="index-list">
+    <li><span class="idx">01</span><b>${escape(tr("home.stage.mods"))}</b><em>${escape(tr("home.stage.published"))}</em></li>
+    <li><span class="idx">02</span><b>${escape(tr("home.stage.updates"))}</b><em>${escape(tr("home.stage.semver"))}</em></li>
+    <li><span class="idx">03</span><b>${escape(tr("home.stage.review"))}</b><em>${escape(tr("home.stage.before"))}</em></li>
+  </ol>
   <section class="facts">
     <article><p class="idx">01</p><h2>${escape(tr("home.fact1.t"))}</h2><p>${escape(tr("home.fact1.d"))}</p></article>
     <article><p class="idx">02</p><h2>${escape(tr("home.fact2.t"))}</h2><p>${escape(tr("home.fact2.d"))}</p></article>

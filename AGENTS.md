@@ -60,15 +60,17 @@ Runtime HTTP errors stay Russian. `localize()` translates them for the English U
 
 ## Design
 
-Light `:root` is the default. Dark comes from `prefers-color-scheme` and `[data-theme="dark"]`. Keep the current tokens: `--page #ece7f7`, `--plate #ddd4f3`, `--surface #f8f6fd`, `--ink #1b1530`, `--accent #5333c9`, `--outline #2b2244`, `--face #5b3fd6`, `--bevel #ffffff`, `--lip #c3b8e2`, `--radius 8px`, `--radius-plate 12px`, `--radius-pill 999px`.
+Light `:root` is the default. Dark comes from `prefers-color-scheme` and `[data-theme="dark"]`. Keep the Horizon tokens in `public/site.css`, including `--page #ece7f7`, `--face #5b3fd6`, and `--radius-plate 12px` on the token line. The Blocks pass after that squares the corners, uses Pixelify for headings, the mark, buttons, and `.foot-word`, and paints the original stone tile. Geist stays the paragraph font. Do not copy the horizon-site stylesheet, mark, or pictures. `public/stone-*.png` and `public/scene-*.svg` are original.
 
-Geist is the UI font. Pixelify Sans is only for `.pixel` and `.foot-word`. The footer word is `HZMODS`. The Discord invite `https://discord.gg/jRaVR4xdmb` is in the footer, not the navbar. Source link: `https://github.com/HZMods-Horizon/horizon-mods-web`.
+The footer word is `HZMODS`. The Discord invite `https://discord.gg/jRaVR4xdmb` is in the footer, not the navbar. Source link: `https://github.com/HZMods-Horizon/horizon-mods-web`.
 
 Do not remove the water hover, custom selects, custom alerts, bilingual switch, follows, stats, the settings shell, the profile head, or the gallery. The water blob copies `getComputedStyle(target).borderRadius`. Do not set `borderRadius` to `999px`.
 
 Custom selects portal `.pick-menu` to `document.body` with `position: fixed` and z-index 20. Do not put the menu back to `position: absolute` inside `.pick`. The account menu is Profile (`/account`) and Settings (`/settings`). Logout sits beside it.
 
-Asset cache in `src/html.mjs`: `theme.js?v=5`, `site.css?v=14`, `site.js?v=10`. When one of those files changes, bump its query and the matching assertion in `test/http.test.mjs`.
+The header is one fixed row: the HZMODS mark, links, language, account, theme, and submit. Links fold into the menu at 1100px. Tools fold into the menu at 900px.
+
+Asset cache in `src/html.mjs`: `theme.js?v=5`, `site.css?v=16`, `site.js?v=11`. When one of those files changes, bump its query and the matching assertion in `test/http.test.mjs`.
 
 A version file input uses `fileField`. Several files set `multiple` and `data-file-many` from `file.many` (`{n}` files). `public/site.js` shows that count.
 

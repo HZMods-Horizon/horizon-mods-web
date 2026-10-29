@@ -22,12 +22,11 @@
     });
   }
 
-  var themeButton = document.querySelector("[data-theme-toggle]");
-  if (themeButton) {
+  document.querySelectorAll("[data-theme-toggle]").forEach(function (themeButton) {
     themeButton.addEventListener("click", function () {
       applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
     });
-  }
+  });
   document.querySelectorAll("[data-theme-set]").forEach(function (el) {
     el.addEventListener("click", function () { applyTheme(el.getAttribute("data-theme-set")); });
   });

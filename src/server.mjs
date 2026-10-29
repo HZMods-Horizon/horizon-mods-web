@@ -93,7 +93,7 @@ export async function buildApp() {
     index: false,
     wildcard: false,
     setHeaders(reply, filePath) {
-      if (/\.(css|js|svg)$/.test(filePath)) reply.header("cache-control", "public, max-age=3600");
+      if (/\.(css|js|svg|png)$/.test(filePath)) reply.header("cache-control", "public, max-age=3600");
     },
   });
   const fonts = [
