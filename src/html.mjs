@@ -457,7 +457,7 @@ export function renderSubmit(req, csrf, values = {}, errs = []) {
   const body = `<div class="center-col"><h1>${escape(tr("submit.h1"))}</h1>
   <p class="lead">${escape(tr("submit.lead"))}</p>
   ${errors(errs, lang)}
-  <section class="sheet narrow"><form method="post" action="/submit" class="stack">
+  <section class="sheet narrow"><form method="post" action="/submit" enctype="multipart/form-data" class="stack">
     ${hidden("_csrf", csrf)}
     ${field(tr("submit.id"), "id", values.id, { required: true, max: 64 })}
     ${select(tr("submit.kind"), "kind", values.kind || "mod", kindOptions(lang))}
@@ -468,9 +468,16 @@ export function renderSubmit(req, csrf, values = {}, errs = []) {
     ${select(tr("submit.license"), "license", values.license || "MIT", LICENSES.map((id) => [id, id]))}
     ${field(tr("submit.source"), "source", values.source, { required: true, type: "url" })}
     ${select(tr("submit.game"), "game", values.game || config.gameVersions[0], config.gameVersions.map((id) => [id, id]))}
+    ${field(tr("version.version"), "version", values.version, { max: 64 })}
+    ${select(tr("version.channel"), "channel", values.channel || "release", [["release", "release"], ["beta", "beta"]])}
+    ${field(tr("version.changelog"), "changelog", values.changelog, { area: true, max: 8000 })}
+    ${fileField(tr, tr("version.file"), "file")}
+    ${fileField(tr, tr("version.shots"), "shots", { multiple: true })}
+    <p>${escape(tr("version.shotsLead"))}</p>
+    ${turnstileBox()}
     <button type="submit">${escape(tr("submit.create"))}</button>
   </form></section></div>`;
-  return page({ title: tr("submit.title"), req, body, robots: true });
+  return page({ title: tr("submit.title"), req, body, robots: true, turnstile: true });
 }
 
 const VERSION_FILE = {

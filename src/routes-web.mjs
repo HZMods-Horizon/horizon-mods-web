@@ -249,16 +249,50 @@ export async function registerWeb(app) {
     return show(reply, renderSubmit(req, pageCsrf(req, reply)));
   });
 
-  app.post("/submit", async (req, reply) => {
+  app.post("/submit", { bodyLimit: config.maxUploadBytes + 6 * 4 * 1024 * 1024 + 1024 * 1024 }, async (req, reply) => {
     if (!gate(req, reply)) return;
-    const body = req.body || {};
+    let body = req.body || {};
+    let file = null;
+    let shots = [];
     try {
+      if (req.isMultipart?.()) {
+        const parsed = await readVersionUpload(req, { fileRequired: false });
+        body = parsed.fields;
+        file = parsed.file;
+        shots = parsed.shots;
+      }
       assertCsrf(req, body);
       const created = await createProject(req.actor, projectInput(body, body.id, body.kind));
-      return redirect(reply, `/mods/${created.id}/version?ok=project`);
+      if (!file) {
+        if (shots.length) throw new HttpError(400, "invalid", "Приложите файл");
+        return redirect(reply, `/mods/${created.id}/version?ok=project`);
+      }
+      await assertTurnstile(body["cf-turnstile-response"], clientIp(req));
+      for (const shot of shots) {
+        if (shot.bytes.length > 4 * 1024 * 1024) throw new HttpError(413, "too_large", "Скриншот больше 4 МБ");
+        const sniffed = sniffMedia(shot.bytes);
+        if (!sniffed || sniffed.kind !== "image") {
+          throw new HttpError(400, "invalid", "Сюда нужна картинка PNG, JPEG, GIF или WebP");
+        }
+      }
+      const result = await uploadVersion(req.actor, created.id, body, file, req.headers["idempotency-key"] || body.idempotency);
+      const payload = result.replay || result;
+      if (payload.status >= 400) {
+        const view = await viewProject(created.id, req.actor);
+        const errs = payload.body?.check?.errors?.length ? payload.body.check.errors : [{ message: "Проверка не пройдена" }];
+        return show(reply, renderVersion(req, view.project, pageCsrf(req, reply), body, errs), payload.status);
+      }
+      for (const shot of shots) await addMedia(req.actor, created.id, shot, { kind: "image" });
+      return redirect(reply, `/mods/${created.id}?ok=version`);
     } catch (err) {
       const http = formError(err);
       if (!http || http.status >= 500) throw err;
+      if (body.id && (file || shots.length)) {
+        const view = await viewProject(body.id, req.actor);
+        if (view?.owner) {
+          return show(reply, renderVersion(req, view.project, pageCsrf(req, reply), body, [{ message: http.message }]), http.status);
+        }
+      }
       return show(reply, renderSubmit(req, pageCsrf(req, reply), { ...body, authors: body.authors }, [{ message: http.message }]), http.status);
     }
   });

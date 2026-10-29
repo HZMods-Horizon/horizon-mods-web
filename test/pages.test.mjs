@@ -369,6 +369,10 @@ test("страницы, документы, формы и отказы", { timeo
     assert.equal(submit.statusCode, 200);
     assert.match(submit.body, /value="native-mod"/);
     assert.match(submit.body, /name="kind"/);
+    assert.match(submit.body, /name="file"/);
+    assert.match(submit.body, /name="shots"[^>]*multiple/);
+    assert.equal(/name="file"[^>]*accept=/.test(submit.body), false);
+    assert.match(submit.body, /enctype="multipart\/form-data"/);
     assert.match(submit.body, /name="license"/);
     assert.match(submit.body, /class="pick"/);
     assert.match(submit.body, /<label>[^<>]+<input/);

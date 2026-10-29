@@ -92,7 +92,7 @@ export async function readMultipart(req) {
   return { fields, file };
 }
 
-export async function readVersionUpload(req) {
+export async function readVersionUpload(req, { fileRequired = true } = {}) {
   if (!req.isMultipart?.()) throw new HttpError(400, "invalid", "Нужен multipart с файлом");
   const fields = {};
   let file = null;
@@ -114,16 +114,16 @@ export async function readVersionUpload(req) {
         part.file.resume();
         throw new HttpError(400, "invalid", "Лишний файл");
       }
-      if (file) {
-        part.file.resume();
-        throw new HttpError(400, "invalid", "Нужен один файл");
-      }
-      file = { filename: part.filename || "mod.bin", bytes: await takePart(part) };
+      const bytes = await takePart(part);
+      const filename = part.filename || "";
+      if (!bytes.length && !filename) continue;
+      if (file) throw new HttpError(400, "invalid", "Нужен один файл");
+      file = { filename: filename || "mod.bin", bytes };
       continue;
     }
     fields[part.fieldname] = String(part.value ?? "");
   }
-  if (!file) throw new HttpError(400, "invalid", "Приложите файл");
+  if (!file && fileRequired) throw new HttpError(400, "invalid", "Приложите файл");
   return { fields, file, shots };
 }
 
