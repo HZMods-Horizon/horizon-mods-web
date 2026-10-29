@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { zipSync } from "fflate";
 
 const dir = await mkdtemp(path.join(os.tmpdir(), "hm-pages-"));
 process.env.NODE_ENV = "test";
@@ -39,6 +40,24 @@ function mainOf(html) {
   const match = String(html).match(/<main id="main">([\s\S]*?)<\/main>/);
   assert.ok(match, "page has a main");
   return match[1];
+}
+
+function multipartFiles(pairs, files) {
+  const boundary = "----hmpagesfile";
+  const chunks = [];
+  for (const [name, value] of Object.entries(pairs)) {
+    chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`));
+  }
+  for (const file of files) {
+    chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${file.field}"; filename="${file.name}"\r\nContent-Type: application/octet-stream\r\n\r\n`));
+    chunks.push(file.bytes);
+    chunks.push(Buffer.from("\r\n"));
+  }
+  chunks.push(Buffer.from(`--${boundary}--\r\n`));
+  return {
+    payload: Buffer.concat(chunks),
+    headers: { "content-type": `multipart/form-data; boundary=${boundary}` },
+  };
 }
 
 function fields(pairs) {
@@ -340,6 +359,7 @@ test("страницы, документы, формы и отказы", { timeo
 
     const submit = await app.inject({ method: "GET", url: "/submit", headers: { accept: "text/html", cookie: session } });
     assert.equal(submit.statusCode, 200);
+    assert.match(submit.body, /value="native-mod"/);
     assert.match(submit.body, /name="kind"/);
     assert.match(submit.body, /name="license"/);
     assert.match(submit.body, /class="pick"/);
@@ -397,6 +417,89 @@ test("страницы, документы, формы и отказы", { timeo
     assert.equal((await app.inject({ method: "GET", url: "/api/v1/users/missing_person" })).statusCode, 404);
     assert.equal((await app.inject({ method: "GET", url: "/api/v1/mods/missing_mod" })).statusCode, 404);
     assert.equal((await app.inject({ method: "GET", url: "/download/missing_mod/1.0.0/file.hmod" })).statusCode, 404);
+
+    const nativeForm = await app.inject({ method: "GET", url: "/submit", headers: { accept: "text/html", cookie: session } });
+    const nativeCsrf = /name="_csrf" value="([^"]+)"/.exec(nativeForm.body)?.[1];
+    const createdNative = await app.inject({
+      method: "POST",
+      url: "/submit",
+      headers: { accept: "text/html", cookie: session, "content-type": "application/x-www-form-urlencoded" },
+      payload: new URLSearchParams({
+        _csrf: nativeCsrf,
+        id: "native_demo",
+        kind: "native-mod",
+        name: "Native Demo",
+        summary: "Rust mixin bundle",
+        description: "source only",
+        authors: "Ada",
+        license: "MIT",
+        source: "https://example.com/native_demo",
+        game: "26.3",
+      }).toString(),
+    });
+    assert.equal(createdNative.statusCode, 303, createdNative.body);
+    const versionPage = await app.inject({
+      method: "GET",
+      url: "/mods/native_demo/version",
+      headers: { accept: "text/html", cookie: session },
+    });
+    assert.equal(versionPage.statusCode, 200, versionPage.body);
+    assert.match(versionPage.body, /name="file"/);
+    assert.match(versionPage.body, /name="shots"[^>]*multiple/);
+    assert.match(versionPage.body, /\.hnmod/);
+    const versionCsrf = /name="_csrf" value="([^"]+)"/.exec(versionPage.body)?.[1];
+    const horizon = "6f8c7a0e5d531d3834c4d0be4659a1db8e7e5c2a";
+    const hnmod = Buffer.from(zipSync({
+      "horizon-native.json": new TextEncoder().encode(JSON.stringify({
+        schema: 1,
+        id: "native_demo",
+        version: "1.0.0",
+        game: "26.3",
+        horizon,
+        mixins: "0d6b103c70633d8fd9443d8d0acd3aadaacedb06",
+        hooks: 1,
+      })),
+      "mixins/native_demo/horizon-mixin.toml": new TextEncoder().encode(`[mod]\nid = "native_demo"\nversion = "1.0.0"\n[compatibility]\nhorizon_revision = "${horizon}"\n`),
+      "mixins/native_demo/demo.rs": new TextEncoder().encode("pub fn demo() {}\n"),
+    }));
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+    const uploaded = multipartFiles({
+      _csrf: versionCsrf,
+      version: "1.0.0",
+      channel: "release",
+      changelog: "first",
+      "cf-turnstile-response": TOKEN,
+    }, [
+      { field: "file", name: "native_demo.hnmod", bytes: hnmod },
+      { field: "shots", name: "shot.png", bytes: png },
+    ]);
+    const sent = await app.inject({
+      method: "POST",
+      url: "/mods/native_demo/version",
+      headers: { ...uploaded.headers, accept: "text/html", cookie: session },
+      payload: uploaded.payload,
+    });
+    assert.equal(sent.statusCode, 303, sent.body);
+    const nativeApi = await app.inject({
+      method: "GET",
+      url: "/api/v1/mods/native_demo",
+      headers: { cookie: session },
+    });
+    assert.equal(nativeApi.statusCode, 200, nativeApi.body);
+    assert.equal(nativeApi.json().kind, "native-mod");
+    assert.equal(nativeApi.json().versions[0].file, "native_demo-1.0.0.hnmod");
+    assert.equal(nativeApi.json().versions[0].status, "in_review");
+    assert.equal(nativeApi.json().versions[0].native.hooks, 1);
+    assert.equal(nativeApi.json().media.length, 1);
+    const nativePage = await app.inject({
+      method: "GET",
+      url: "/mods/native_demo",
+      headers: { accept: "text/html", cookie: session },
+    });
+    assert.match(nativePage.body, /6f8c7a0e5d53/);
+    assert.match(nativePage.body, /class="shot-card"/);
+    const hidden = await app.inject({ method: "GET", url: "/api/v1/index.json" });
+    assert.equal(hidden.json().projects.some((item) => item.id === "native_demo"), false);
 
     const loggedOut = await app.inject({
       method: "POST",

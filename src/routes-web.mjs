@@ -47,8 +47,8 @@ import {
   renderVersion,
   sendHtml,
 } from "./html.mjs";
-import { assertCsrf, clearSessionCookie, clientIp, pageCsrf, readFormFiles, readMultipart, redirect, setSessionCookie } from "./http.mjs";
-import { addMedia, deleteMedia, mediaType, openMedia } from "./media.mjs";
+import { assertCsrf, clearSessionCookie, clientIp, pageCsrf, readFormFiles, readVersionUpload, redirect, setSessionCookie } from "./http.mjs";
+import { addMedia, deleteMedia, listMedia, mediaType, openMedia, sniffMedia } from "./media.mjs";
 import { applyImages, imageType, profileFile } from "./profile.mjs";
 import { applyLimitHeaders, consume } from "./rate.mjs";
 import {
@@ -268,20 +268,30 @@ export async function registerWeb(app) {
     return show(reply, renderVersion(req, view.project, pageCsrf(req, reply)));
   });
 
-  app.post("/mods/:id/version", { bodyLimit: config.maxUploadBytes + 1024 * 1024 }, async (req, reply) => {
+  app.post("/mods/:id/version", { bodyLimit: config.maxUploadBytes + 6 * 4 * 1024 * 1024 + 1024 * 1024 }, async (req, reply) => {
     if (!gate(req, reply)) return;
     const view = await viewProject(req.params.id, req.actor);
     if (!view?.owner) return show(reply, renderError(req, 404, "Страница не ваша"), 404);
     try {
-      const { fields, file } = await readMultipart(req);
+      const { fields, file, shots } = await readVersionUpload(req);
       assertCsrf(req, fields);
       await assertTurnstile(fields["cf-turnstile-response"], clientIp(req));
+      const images = (await listMedia(req.params.id)).filter((item) => item.kind === "image").length;
+      if (images + shots.length > 6) throw new HttpError(400, "invalid", "Скриншотов больше шести");
+      for (const shot of shots) {
+        if (shot.bytes.length > 4 * 1024 * 1024) throw new HttpError(413, "too_large", "Скриншот больше 4 МБ");
+        const sniffed = sniffMedia(shot.bytes);
+        if (!sniffed || sniffed.kind !== "image") {
+          throw new HttpError(400, "invalid", "Сюда нужна картинка PNG, JPEG, GIF или WebP");
+        }
+      }
       const result = await uploadVersion(req.actor, req.params.id, fields, file, req.headers["idempotency-key"] || fields.idempotency);
       const payload = result.replay || result;
       if (payload.status >= 400) {
         const errs = payload.body?.check?.errors?.length ? payload.body.check.errors : [{ message: "Проверка не пройдена" }];
         return show(reply, renderVersion(req, view.project, pageCsrf(req, reply), fields, errs), payload.status);
       }
+      for (const shot of shots) await addMedia(req.actor, req.params.id, shot, { kind: "image" });
       return redirect(reply, `/mods/${req.params.id}?ok=version`);
     } catch (err) {
       const http = formError(err);

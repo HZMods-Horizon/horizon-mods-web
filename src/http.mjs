@@ -92,6 +92,41 @@ export async function readMultipart(req) {
   return { fields, file };
 }
 
+export async function readVersionUpload(req) {
+  if (!req.isMultipart?.()) throw new HttpError(400, "invalid", "Нужен multipart с файлом");
+  const fields = {};
+  let file = null;
+  const shots = [];
+  const parts = req.parts();
+  for await (const part of parts) {
+    if (part.type === "file") {
+      if (part.fieldname === "shots") {
+        if (shots.length >= 6) {
+          part.file.resume();
+          throw new HttpError(400, "invalid", "Скриншотов больше шести");
+        }
+        const bytes = await takePart(part);
+        if (!bytes.length) continue;
+        shots.push({ filename: part.filename || "shot.bin", bytes });
+        continue;
+      }
+      if (part.fieldname !== "file") {
+        part.file.resume();
+        throw new HttpError(400, "invalid", "Лишний файл");
+      }
+      if (file) {
+        part.file.resume();
+        throw new HttpError(400, "invalid", "Нужен один файл");
+      }
+      file = { filename: part.filename || "mod.bin", bytes: await takePart(part) };
+      continue;
+    }
+    fields[part.fieldname] = String(part.value ?? "");
+  }
+  if (!file) throw new HttpError(400, "invalid", "Приложите файл");
+  return { fields, file, shots };
+}
+
 export async function readFormFiles(req, names) {
   if (!req.isMultipart?.()) throw new HttpError(400, "invalid", "Нужен multipart");
   const allowed = new Set(names);

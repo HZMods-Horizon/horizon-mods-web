@@ -355,6 +355,145 @@ function checkResource(entries, extracted, report) {
   report.manifest = { id: "", name: "", version: "", api: null, side: null, capabilities: [], namespaces: [], mods: [] };
 }
 
+const NATIVE_JSON_MAX = 64 * 1024;
+const NATIVE_KEYS = new Set(["schema", "id", "version", "game", "horizon", "mixins", "hooks"]);
+const NATIVE_FILE = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,80}$/;
+const HEX40 = /^[0-9a-f]{40}$/;
+const HEXREV = /^[0-9a-f]{7,40}$/;
+const NATIVE_WARN = "Нативный мод — это исходники Rust. Лаунчер вшивает их в отдельную сборку игры, песочницы нет. Рецензент читает код перед публикацией.";
+
+function sourceText(bytes, report, name) {
+  const buf = Buffer.from(bytes);
+  if (buf.includes(0)) {
+    pushError(report, "native", `Файл не похож на исходник: ${name}`);
+    return "";
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buf).replace(/^\uFEFF/, "");
+  } catch {
+    pushError(report, "native", `Файл не похож на исходник: ${name}`);
+    return "";
+  }
+}
+
+function checkNative(buf, pre, expected, report) {
+  const prefix = `mixins/${expected.id}/`;
+  const files = pre.entries.filter((entry) => !entry.directory);
+  const allowed = new Set();
+  let hasRs = false;
+  let hasToml = false;
+  let hasJson = false;
+  for (const entry of files) {
+    if (entry.name === "horizon-native.json") {
+      hasJson = true;
+      allowed.add(entry.name);
+      if (entry.uncomp > NATIVE_JSON_MAX) pushError(report, "native", "horizon-native.json больше 64 КБ");
+      continue;
+    }
+    const base = entry.name.startsWith(prefix) ? entry.name.slice(prefix.length) : "";
+    const ext = extOf(base);
+    if (!base || base.includes("/") || (ext !== "rs" && ext !== "toml")) {
+      if (base && !base.includes("/") && ext !== "rs" && ext !== "toml") {
+        pushError(report, "fence", `В нативном моде можно только .rs и .toml: ${entry.name}`);
+      } else {
+        pushError(report, "fence", `В нативном моде лишний файл: ${entry.name}`);
+      }
+      continue;
+    }
+    if (!NATIVE_FILE.test(base)) pushError(report, "fence", `Имя файла не подходит: ${entry.name}`);
+    allowed.add(entry.name);
+    if (ext === "rs") hasRs = true;
+    if (base === "horizon-mixin.toml") hasToml = true;
+  }
+  if (!hasJson) pushError(report, "native", "В архиве нет horizon-native.json");
+  if (!hasToml) pushError(report, "native", "В архиве нет horizon-mixin.toml");
+  if (!hasRs) pushError(report, "native", "В нативном моде нет ни одного .rs");
+  if (report.errors.length) return;
+
+  let unpacked;
+  try {
+    unpacked = unzipSync(new Uint8Array(buf), {
+      filter(file) { return allowed.has(file.name); },
+    });
+  } catch (err) {
+    pushError(report, "bad_zip", `Архив не распаковывается: ${err.message}`);
+    return;
+  }
+  const texts = new Map();
+  for (const name of allowed) {
+    const data = unpacked[name];
+    const declared = pre.entries.find((entry) => entry.name === name);
+    if (!data) {
+      pushError(report, "bad_zip", `Архив не распаковывается: ${name}`);
+      continue;
+    }
+    if (declared && data.length !== declared.uncomp) {
+      pushError(report, "bad_zip", `Размер ${name} не совпал с оглавлением`);
+      continue;
+    }
+    const text = sourceText(data, report, name);
+    if (text) texts.set(name, text);
+  }
+  if (report.errors.length) return;
+
+  let meta;
+  try {
+    meta = JSON.parse(texts.get("horizon-native.json"));
+  } catch {
+    pushError(report, "native", "JSON не разбирается");
+    return;
+  }
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+    pushError(report, "native", "JSON не разбирается");
+    return;
+  }
+  knownOnly(meta, NATIVE_KEYS, report, "horizon-native.json");
+  if (meta.schema !== 1) pushError(report, "native", "В horizon-native.json schema должна быть 1");
+  if (meta.id !== expected.id) pushError(report, "native", "id в horizon-native.json не совпадает со страницей");
+  if (meta.version !== expected.version) pushError(report, "native", "version в horizon-native.json не совпадает с загружаемой версией");
+  if (meta.game !== expected.game) pushError(report, "native", "game в horizon-native.json не совпадает со страницей");
+  if (typeof meta.horizon !== "string" || !HEX40.test(meta.horizon)) {
+    pushError(report, "native", "horizon должен быть 40 hex-символов");
+  }
+  if (typeof meta.mixins !== "string" || !HEXREV.test(meta.mixins)) {
+    pushError(report, "native", "mixins должен быть hex-ревизией");
+  }
+  if (!Number.isInteger(meta.hooks) || meta.hooks < 1 || meta.hooks > 1_000_000) {
+    pushError(report, "native", "hooks должен быть целым числом больше нуля");
+  }
+  if (report.errors.length) return;
+
+  const parsed = parseToml(texts.get(`${prefix}horizon-mixin.toml`), report, "horizon-mixin.toml");
+  if (!parsed) return;
+  const mod = parsed.mod;
+  if (!mod || typeof mod !== "object" || Array.isArray(mod)) {
+    pushError(report, "native", "В horizon-mixin.toml нет [mod]");
+    return;
+  }
+  if (mod.id !== expected.id) pushError(report, "native", "id в horizon-mixin.toml не совпадает со страницей");
+  if (mod.version !== expected.version) pushError(report, "native", "version в horizon-mixin.toml не совпадает с загружаемой версией");
+  const pinned = parsed.compatibility && typeof parsed.compatibility === "object"
+    ? parsed.compatibility.horizon_revision
+    : undefined;
+  if (pinned !== meta.horizon) {
+    pushError(report, "native", "horizon_revision должен совпадать с horizon в horizon-native.json");
+  }
+  if (report.errors.length) return;
+
+  report.native = { horizon: meta.horizon, mixins: meta.mixins, hooks: meta.hooks };
+  report.manifest = {
+    id: expected.id,
+    name: expected.name,
+    version: expected.version,
+    api: null,
+    side: null,
+    capabilities: [],
+    namespaces: [],
+    mods: [],
+  };
+  report.warnings.push({ code: "native", message: NATIVE_WARN });
+}
+
 function checkShader(entries, extracted, expected, report) {
   const text = extracted.get("horizon-shader.toml");
   if (text === undefined) {
@@ -389,9 +528,16 @@ function checkShader(entries, extracted, expected, report) {
 export function inspectArchive(bytes, expected, limits = LIMITS) {
   const report = emptyReport();
   const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  const use = expected.kind === "native-mod"
+    ? {
+      maxFiles: Math.min(limits.maxFiles, 64),
+      maxEntry: Math.min(limits.maxEntry, 1024 * 1024),
+      maxTotal: Math.min(limits.maxTotal, 8 * 1024 * 1024),
+    }
+    : limits;
   let pre;
   try {
-    pre = preflightZip(buf, limits);
+    pre = preflightZip(buf, use);
   } catch (err) {
     pushError(report, err.code || "bad_zip", err.message);
     return report;
@@ -400,6 +546,11 @@ export function inspectArchive(bytes, expected, limits = LIMITS) {
   report.uncompressedBytes = pre.totalUncomp;
   report.files = pre.entries.filter((entry) => !entry.directory).slice(0, 80).map((entry) => ({ name: entry.name, size: entry.uncomp }));
   denyEntries(pre.entries, report);
+  if (expected.kind === "native-mod") {
+    if (!report.errors.length) checkNative(buf, pre, expected, report);
+    report.ok = report.errors.length === 0;
+    return report;
+  }
   for (const entry of pre.entries) {
     if (!needed(entry.name)) continue;
     const cap = entry.name.endsWith(".toml") || entry.name === "pack.mcmeta" ? 256 * 1024 : limits.maxEntry;

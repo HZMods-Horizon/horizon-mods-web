@@ -100,7 +100,7 @@ test("реестр: аккаунт, проверка, индекс, обновл
     assert.match(home.body, /lang="ru"/);
     assert.match(home.body, /https:\/\/discord\.gg\/jRaVR4xdmb/);
     assert.match(home.body, /site\.css\?v=14/);
-    assert.match(home.body, /site\.js\?v=9/);
+    assert.match(home.body, /site\.js\?v=10/);
     assert.equal((await app.inject({ method: "GET", url: "/healthz" })).statusCode, 200);
     const css = await app.inject({ method: "GET", url: "/site.css" });
     assert.equal(css.statusCode, 200);

@@ -13,13 +13,14 @@ import { audit, hasScope, requireScope } from "./auth.mjs";
 import { listMedia, listMediaMany } from "./media.mjs";
 import { asArray, iso, newId, sha256hex } from "./secret.mjs";
 import { bestVersion, cmpSemver } from "./semver.mjs";
-import { finishProject, projectSchema, versionSchema } from "./validate.mjs";
+import { finishProject, KINDS, projectSchema, versionSchema } from "./validate.mjs";
 
 export const EXT = {
   mod: ".hmod",
   modpack: ".hpack",
   resourcepack: ".zip",
   shader: ".hshader",
+  "native-mod": ".hnmod",
 };
 
 const IDEM = /^[A-Za-z0-9_-]{8,80}$/;
@@ -67,7 +68,7 @@ export async function buildIndex() {
   );
   const versions = await query(
     `SELECT v.project_id, v.version, v.published_at, v.changelog, v.api, v.side, v.capabilities,
-            v.game, v.channel, v.requires, v.file_name, v.size_bytes, v.sha256, v.downloads
+            v.game, v.channel, v.requires, v.file_name, v.size_bytes, v.sha256, v.downloads, v.check_report
      FROM versions v
      JOIN projects p ON p.id = v.project_id
      WHERE p.status = 'published' AND v.status = 'published'
@@ -114,23 +115,29 @@ export async function buildIndex() {
           url: `${config.publicUrl}/mods/${project.id}/media/${item.id}`,
           caption: item.caption || "",
         })),
-        versions: vers.map((item) => omitEmpty({
-          version: item.version,
-          published: iso(item.published_at),
-          changelog: item.changelog || "",
-          api: item.api,
-          side: item.side,
-          capabilities: asArray(item.capabilities),
-          game: item.game,
-          channel: item.channel,
-          requires: asArray(item.requires),
-          file: {
-            name: item.file_name,
-            url: fileUrl(project.id, item.version, item.file_name),
-            size: Number(item.size_bytes),
-            sha256: item.sha256,
-          },
-        })),
+        versions: vers.map((item) => {
+          const native = reportOf(item.check_report).native || {};
+          return omitEmpty({
+            version: item.version,
+            published: iso(item.published_at),
+            changelog: item.changelog || "",
+            api: item.api,
+            side: item.side,
+            capabilities: asArray(item.capabilities),
+            game: item.game,
+            channel: item.channel,
+            requires: asArray(item.requires),
+            horizon: native.horizon,
+            mixins: native.mixins,
+            hooks: Number.isInteger(native.hooks) ? native.hooks : undefined,
+            file: {
+              name: item.file_name,
+              url: fileUrl(project.id, item.version, item.file_name),
+              size: Number(item.size_bytes),
+              sha256: item.sha256,
+            },
+          });
+        }),
       };
     }),
     revoked: revoked.rows.map((row) => omitEmpty({
@@ -295,7 +302,7 @@ export async function uploadVersion(actor, projectId, fields, file, idemKey) {
     }
     report.ok = report.errors.length === 0;
   }
-  if (report.ok) {
+  if (report.ok && project.kind !== "native-mod") {
     const external = await runExternal(file.bytes, sha, EXT[project.kind]);
     report.external = { status: external.status, detail: external.detail, stderr: external.stderr || "" };
     if (external.status === "failed") {
@@ -305,11 +312,18 @@ export async function uploadVersion(actor, projectId, fields, file, idemKey) {
       else report.warnings.push({ code: "sandbox", message: "Пробный запуск в песочнице не выполнялся. Рецензент видит это." });
     }
     report.ok = report.errors.length === 0;
+  } else if (report.ok && project.kind === "native-mod") {
+    report.external = { status: "not_run", detail: "Нативный мод здесь не запускается" };
   }
 
   let status = "in_review";
   if (!report.ok) status = "checks_failed";
-  else if (config.trustedOwnerUpdates && report.external?.status !== "failed" && (report.external?.status === "passed" || !config.checkRequired)) {
+  else if (
+    project.kind !== "native-mod"
+    && config.trustedOwnerUpdates
+    && report.external?.status !== "failed"
+    && (report.external?.status === "passed" || !config.checkRequired)
+  ) {
     status = "published";
   }
   const fileName = `${project.id}-${version.version}${EXT[project.kind]}`;
@@ -334,6 +348,7 @@ export async function uploadVersion(actor, projectId, fields, file, idemKey) {
     files: report.files,
     fileCount: report.fileCount,
     external: report.external,
+    native: report.native || null,
   };
 
   // Файл пишется до коммита: строка в базе не должна указывать на отсутствующие байты.
@@ -540,8 +555,13 @@ export async function decideReview(actor, versionId, { action, note, acceptStati
   }
   if (action === "approve") {
     if (!report.ok) throw new HttpError(400, "invalid", "Статическая проверка не пройдена");
-    const skipped = report.external?.status === "skipped" || (report.warnings || []).some((item) => item.code === "sandbox");
-    if (skipped && !truthy(acceptStatic)) {
+    const warnings = report.warnings || [];
+    const native = warnings.some((item) => item.code === "native");
+    const skipped = report.external?.status === "skipped" || warnings.some((item) => item.code === "sandbox");
+    if (native && !truthy(acceptStatic)) {
+      throw new HttpError(400, "invalid", "Нативный мод без песочницы. Подтвердите, что исходники прочитаны.");
+    }
+    if (!native && skipped && !truthy(acceptStatic)) {
       throw new HttpError(400, "invalid", "Песочница не запускалась. Подтвердите, что принимаете статическую проверку.");
     }
     await query(
@@ -611,7 +631,7 @@ export async function listPublic({ q, kind, page }) {
   const pageNum = Math.max(1, Math.floor(Number(page) || 1));
   const params = [];
   const where = ["p.status = 'published'"];
-  if (["mod", "modpack", "resourcepack", "shader"].includes(kind)) {
+  if (KINDS.includes(kind)) {
     params.push(kind);
     where.push(`p.kind = $${params.length}`);
   }
@@ -720,6 +740,10 @@ export async function viewProject(id, actor) {
       publishedAt: iso(row.published_at),
       reviewNote: owner || reviewer ? row.review_note : null,
     };
+    const native = reportOf(row.check_report).native;
+    if (native && typeof native.horizon === "string") {
+      item.native = { horizon: native.horizon, mixins: native.mixins, hooks: native.hooks };
+    }
     if (owner || reviewer) item.check = publicCheck(row.check_report);
     return item;
   });

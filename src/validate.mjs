@@ -2,6 +2,8 @@ import { z } from "zod";
 import config from "./config.mjs";
 import { HttpError, zodError } from "./errors.mjs";
 
+export const KINDS = ["mod", "modpack", "resourcepack", "shader", "native-mod"];
+
 export const LICENSES = [
   "MIT", "Apache-2.0", "GPL-3.0-only", "GPL-3.0-or-later", "AGPL-3.0-only",
   "LGPL-3.0-only", "BSD-2-Clause", "BSD-3-Clause", "MPL-2.0", "ISC", "Unlicense", "CC0-1.0",
@@ -34,7 +36,7 @@ function noControls(value, label, { newlines = false } = {}) {
 
 export const projectSchema = z.object({
   id: z.string({ required_error: "Укажите id" }).regex(/^[a-z0-9_]{1,64}$/, "id: латиница в нижнем регистре, цифры и _"),
-  kind: z.enum(["mod", "modpack", "resourcepack", "shader"], { errorMap: () => ({ message: "Вид: mod, modpack, resourcepack или shader" }) }),
+  kind: z.enum(KINDS, { errorMap: () => ({ message: "Вид: mod, modpack, resourcepack, shader или native-mod" }) }),
   name: z.string({ required_error: "Укажите название" }).trim().min(1, "Укажите название").max(80, "Название длиннее 80 символов"),
   summary: z.string({ required_error: "Укажите строку для списка" }).trim().min(1, "Укажите строку для списка").max(160, "Строка для списка длиннее 160 символов"),
   description: z.string().max(8000, "Описание длиннее 8000 символов").optional().default(""),

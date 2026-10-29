@@ -25,17 +25,17 @@ Registration is a name, a password, and Cloudflare Turnstile. Email is not used 
 
 ## What the registry does
 
-An author creates a mod page and uploads `.hmod`, `.hpack`, a resource pack, or a shader. The archive is read from its central directory: paths, sizes, symlinks, extra executables, the manifest, and that the id matches the page. A version reaches the index, download, and auto-update only after a person in the queue approves it. You cannot approve your own mod. If `HORIZON_MOD_CHECK_BIN` is empty, the reviewer marks that the sandbox did not run.
+An author creates a mod page and uploads `.hmod`, `.hpack`, a resource pack, a shader, or a native mod (`.hnmod`). The archive is read from its central directory: paths, sizes, symlinks, extra executables, the manifest, and that the id matches the page. A native `.hnmod` is `horizon-native.json` plus `mixins/<id>` files that are only `.rs` and `.toml`. The site reads that source and does not run it. A launcher with native-mod support compiles it into a separate game. A version reaches the index, download, and auto-update only after a person in the queue approves it. You cannot approve your own mod. A native mod always stays in review until that person confirms they read the source. If `HORIZON_MOD_CHECK_BIN` is empty, the reviewer marks that the sandbox did not run for the other kinds.
 
 A published version number cannot be replaced. A failed or rejected version can be uploaded again. An admin revocation answers the download with 410.
 
-`GET /api/v1/index.json` is schema 1. A client may ignore extra fields. There is no minisign signature. `GET /api/v1/updates?installed=id@1.0.0&game=26.3&channel=release` and the same POST say whether a newer version exists. The beta channel sees beta and release.
+`GET /api/v1/index.json` is schema 1. A client may ignore extra fields. A native version may also carry `horizon`, `mixins`, and `hooks`. There is no minisign signature. `GET /api/v1/updates?installed=id@1.0.0&game=26.3&channel=release` and the same POST say whether a newer version exists. The beta channel sees beta and release.
 
 An API key is created in the account. The secret is shown once and stored only as a hash. Header: `Authorization: Bearer hmk_live_…`. A bad key is 401. An upload with a key does not require Turnstile. A cookie request requires `X-CSRF-Token`. Repeating an upload with the same `Idempotency-Key` returns the previous response.
 
 Limits live in `.env` and in `GET /api/v1/limits`. Over the limit the response is 429 with `Retry-After`. Route descriptions are at `/docs/api` and `/api/v1/openapi.json`. Examples: `examples/check-updates.mjs`, `examples/publish.mjs`.
 
-An owner can put up to six screenshots and one short video on a mod page. Pictures are PNG, JPEG, GIF, or WebP, 4 MB each. The clip is MP4 or WebM, 8 MB. Visitors see the files after the mod is published. `GET /api/v1/mods/:id` lists them, and `GET /api/v1/feed` lists recent published versions.
+An owner can put up to six screenshots and one short video on a mod page. The version form can take the archive and up to six of those screenshots together. Pictures are PNG, JPEG, GIF, or WebP, 4 MB each. The clip is MP4 or WebM, 8 MB. Visitors see the files after the mod is published. `GET /api/v1/mods/:id` lists them, and `GET /api/v1/feed` lists recent published versions.
 
 A Discord bot can sit beside this repo. It is a separate program. Leave `BOT_NOTIFY_URL` and `BOT_NOTIFY_SECRET` empty and the bot can poll `/api/v1/feed`. Set both when you want the site to ping the bot at the moment a version is published. Publishing still succeeds if that ping fails.
 

@@ -1,9 +1,8 @@
 import config from "./config.mjs";
 import { has, langOf, localize, t } from "./i18n.mjs";
 import { asArray } from "./secret.mjs";
-import { LICENSES } from "./validate.mjs";
+import { KINDS, LICENSES } from "./validate.mjs";
 
-const KIND_KEYS = ["mod", "modpack", "resourcepack", "shader"];
 const STATUS_KEYS = ["draft", "in_review", "checks_failed", "published", "rejected", "revoked"];
 
 export function escape(value) {
@@ -147,7 +146,7 @@ ${nav(req)}
     </p>
   </div>
 </div>
-<script src="/site.js?v=9" defer></script>
+<script src="/site.js?v=10" defer></script>
 ${turnstile ? `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ""}
 </body>
 </html>`;
@@ -216,7 +215,9 @@ function check(name, text, opts = {}) {
 function fileField(tr, label, name, opts = {}) {
   const accept = opts.accept ? ` accept="${escape(opts.accept)}"` : "";
   const required = opts.required ? " required" : "";
-  return `<label class="file"><span>${escape(label)}</span><span class="file-row"><input class="file-input" type="file" name="${escape(name)}"${accept}${required}><span class="file-btn">${escape(tr("file.choose"))}</span><span class="file-name">${escape(tr("file.none"))}</span></span></label>`;
+  const multiple = opts.multiple ? " multiple" : "";
+  const many = opts.multiple ? ` data-file-many="${escape(tr("file.many"))}"` : "";
+  return `<label class="file"><span>${escape(label)}</span><span class="file-row"><input class="file-input" type="file" name="${escape(name)}"${accept}${required}${multiple}${many}><span class="file-btn">${escape(tr("file.choose"))}</span><span class="file-name">${escape(tr("file.none"))}</span></span></label>`;
 }
 
 function letter(name) {
@@ -287,7 +288,7 @@ function authorMark(item) {
 }
 
 function kindOptions(lang, blank = false) {
-  const rows = KIND_KEYS.map((id) => [id, kindLabel(id, lang)]);
+  const rows = KINDS.map((id) => [id, kindLabel(id, lang)]);
   return blank ? [["", t(lang, "kind.all")], ...rows] : rows;
 }
 
@@ -361,9 +362,17 @@ function versionBlock(projectId, item, showCheck, lang, tr) {
   const link = item.status === "published"
     ? `<p><a href="/download/${escape(projectId)}/${escape(item.version)}/${escape(item.file)}">${escape(tr("project.download", { file: item.file }))}</a> · ${item.downloads}</p>`
     : "";
+  const pin = item.native?.horizon
+    ? `<p class="mono">${escape(tr("version.pin", {
+      horizon: String(item.native.horizon).slice(0, 12),
+      mixins: String(item.native.mixins || "").slice(0, 12),
+      hooks: item.native.hooks,
+    }))}</p>`
+    : "";
   return `<article class="panel">
     <h3>${escape(item.version)} <span class="tag">${escape(statusLabel(item.status, lang))}</span> <span class="tag">${escape(item.channel)}</span></h3>
     <p class="mono">${escape(item.sha256)}</p>
+    ${pin}
     ${item.changelog ? `<p class="prose">${escape(item.changelog)}</p>` : ""}
     ${link}
     ${showCheck ? check + warn : ""}
@@ -429,6 +438,7 @@ export function renderProject(req, view, csrf = "", errs = []) {
   <p class="kicker">${escape(kindLabel(project.kind, lang))} · ${escape(statusLabel(project.status, lang))} · ${escape(project.game)}</p>
   <h1>${letter(project.name)} ${escape(project.name)}</h1>
   <p class="lead">${escape(project.summary)}</p>
+  ${project.kind === "native-mod" ? note("warn", tr("project.native"), lang) : ""}
   <p class="row">${userLink(project)} <span>· ${escape(project.license)} · <a href="${escape(project.source_url)}">${escape(tr("project.source"))}</a></span></p>
   ${gallerySection(project, view.media, view.owner, csrf, lang, tr, errs)}
   ${project.description ? `<div class="sheet prose">${escape(project.description)}</div>` : ""}
@@ -459,20 +469,33 @@ export function renderSubmit(req, csrf, values = {}, errs = []) {
   return page({ title: tr("submit.title"), req, body, robots: true });
 }
 
+const VERSION_FILE = {
+  mod: ["version.fileMod", ".hmod,application/zip"],
+  modpack: ["version.filePack", ".hpack,application/zip"],
+  resourcepack: ["version.filePackZip", ".zip,application/zip"],
+  shader: ["version.fileShader", ".hshader,application/zip"],
+  "native-mod": ["version.fileNative", ".hnmod,application/zip"],
+};
+
 export function renderVersion(req, project, csrf, values = {}, errs = []) {
   const { lang, tr } = use(req);
   const idHtml = `<span class="mono">${escape(project.id)}</span>`;
   const mark = "\u0000id\u0000";
   const lead = escape(tr("version.lead", { id: mark })).replace(mark, idHtml);
+  const [fileKey, accept] = VERSION_FILE[project.kind] || ["version.file", ""];
+  const native = project.kind === "native-mod" ? note("warn", tr("project.native"), lang) : "";
   const body = `<div class="center-col"><h1>${escape(tr("version.h1", { name: project.name }))}</h1>
   <p class="lead">${lead}</p>
+  ${native}
   ${errors(errs, lang)}
   <section class="sheet narrow"><form method="post" action="/mods/${escape(project.id)}/version" enctype="multipart/form-data" class="stack">
     ${hidden("_csrf", csrf)}
     ${field(tr("version.version"), "version", values.version, { required: true, max: 64 })}
     ${select(tr("version.channel"), "channel", values.channel || "release", [["release", "release"], ["beta", "beta"]])}
     ${field(tr("version.changelog"), "changelog", values.changelog, { area: true, max: 8000 })}
-    ${fileField(tr, tr("version.file"), "file", { required: true })}
+    ${fileField(tr, tr(fileKey), "file", { required: true, accept })}
+    ${fileField(tr, tr("version.shots"), "shots", { multiple: true, accept: "image/png,image/jpeg,image/gif,image/webp" })}
+    <p>${escape(tr("version.shotsLead"))}</p>
     ${turnstileBox()}
     <button type="submit">${escape(tr("version.send"))}</button>
   </form></section></div>`;
@@ -655,7 +678,9 @@ export function renderReviewList(req, rows) {
 export function renderReview(req, row, error = "") {
   const { lang, tr } = use(req);
   const report = row.check_report || { errors: [], warnings: [] };
-  const skipped = report.external?.status === "skipped" || (report.warnings || []).some((item) => item.code === "sandbox");
+  const warnings = report.warnings || [];
+  const native = warnings.some((item) => item.code === "native");
+  const skipped = !native && (report.external?.status === "skipped" || warnings.some((item) => item.code === "sandbox"));
   const body = `<h1>${escape(row.project_name)} ${escape(row.version)}</h1>
   <p class="row">${userLink(row)} <span>· ${escape(kindLabel(row.kind, lang))} · ${escape(row.channel)}</span></p>
   ${error ? note("bad", error, lang) : ""}
@@ -667,7 +692,7 @@ export function renderReview(req, row, error = "") {
   <form method="post" action="/review/${escape(row.id)}" class="stack">
     ${hidden("_csrf", req.actor.csrf)}
     ${field(tr("review.note"), "note", "", { area: true, max: 2000 })}
-    ${skipped ? check("acceptStatic", tr("review.accept")) : ""}
+    ${native ? check("acceptStatic", tr("review.acceptNative")) : skipped ? check("acceptStatic", tr("review.accept")) : ""}
     <p class="row"><button type="submit" name="action" value="approve">${escape(tr("review.approve"))}</button><button class="ghost" type="submit" name="action" value="reject" data-confirm="${escape(tr("confirm.reject"))}">${escape(tr("review.reject"))}</button></p>
   </form>
   </section>`;

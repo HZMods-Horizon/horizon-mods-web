@@ -481,8 +481,17 @@
     input.addEventListener("change", function () {
       var name = input.parentElement && input.parentElement.querySelector(".file-name");
       if (!name) return;
-      var file = input.files && input.files[0];
-      name.textContent = file ? file.name : (document.body.dataset.fileNone || "");
+      var files = input.files;
+      if (!files || !files.length) {
+        name.textContent = document.body.dataset.fileNone || "";
+        return;
+      }
+      if (input.multiple && files.length > 1) {
+        var tmpl = input.getAttribute("data-file-many") || "{n}";
+        name.textContent = tmpl.replace("{n}", String(files.length));
+        return;
+      }
+      name.textContent = files[0].name;
     });
   });
 
