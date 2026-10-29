@@ -29,7 +29,6 @@ import {
   renderError,
   renderHome,
   renderLogin,
-  renderMessage,
   renderMods,
   renderPrivacy,
   renderProfile,
@@ -38,6 +37,7 @@ import {
   renderReview,
   renderReviewDocs,
   renderReviewList,
+  renderSettings,
   renderSubmit,
   renderUpdates,
   renderVersion,
@@ -290,7 +290,14 @@ export async function registerWeb(app) {
 
   app.get("/account", async (req, reply) => {
     if (!gate(req, reply)) return;
-    return show(reply, renderAccount(req, await ownProfile(req.actor), await listKeys(req.actor)));
+    return show(reply, renderAccount(req, await ownProfile(req.actor)));
+  });
+
+  app.get("/settings", async (req, reply) => {
+    if (!gate(req, reply)) return;
+    const tab = req.query?.tab === "site" ? "site" : "account";
+    const keys = tab === "account" ? await listKeys(req.actor) : [];
+    return show(reply, renderSettings(req, { tab, keys }));
   });
 
   app.post("/account/profile", { bodyLimit: 8 * 1024 * 1024 }, async (req, reply) => {
@@ -306,7 +313,7 @@ export async function registerWeb(app) {
     } catch (err) {
       const http = formError(err);
       if (!http || http.status >= 500) throw err;
-      return show(reply, renderAccount(req, await ownProfile(req.actor), await listKeys(req.actor), "", http.message), http.status);
+      return show(reply, renderAccount(req, await ownProfile(req.actor), http.message), http.status);
     }
   });
 
@@ -320,11 +327,11 @@ export async function registerWeb(app) {
         await query("DELETE FROM sessions WHERE id = $1", [req.actor.sessionId]);
         setSessionCookie(reply, session);
       }
-      return redirect(reply, "/account?ok=password");
+      return redirect(reply, "/settings?ok=password");
     } catch (err) {
       const http = formError(err);
       if (!http || http.status >= 500) throw err;
-      return show(reply, renderMessage(req, "Пароль", http.message), http.status);
+      return show(reply, renderSettings(req, { tab: "account", keys: await listKeys(req.actor), error: http.message }), http.status);
     }
   });
 
@@ -338,11 +345,11 @@ export async function registerWeb(app) {
       if (body.review_write) scopes.push("review:write");
       if (body.admin_write) scopes.push("admin:write");
       const created = await createKey(req.actor, body.name, scopes);
-      return show(reply, renderAccount(req, await ownProfile(req.actor), await listKeys(req.actor), created.secret));
+      return show(reply, renderSettings(req, { tab: "account", keys: await listKeys(req.actor), secret: created.secret }));
     } catch (err) {
       const http = formError(err);
       if (!http || http.status >= 500) throw err;
-      return show(reply, renderMessage(req, "Ключ", http.message), http.status);
+      return show(reply, renderSettings(req, { tab: "account", keys: await listKeys(req.actor), error: http.message }), http.status);
     }
   });
 
@@ -350,7 +357,7 @@ export async function registerWeb(app) {
     if (!gate(req, reply)) return;
     assertCsrf(req, req.body || {});
     await revokeKey(req.actor, req.params.id);
-    return redirect(reply, "/account?ok=revoked-key");
+    return redirect(reply, "/settings?ok=revoked-key");
   });
 
   app.get("/dashboard", async (req, reply) => {
@@ -479,7 +486,7 @@ export async function registerWeb(app) {
   });
 
   app.get("/robots.txt", async (_req, reply) => {
-    const body = "User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /account\nDisallow: /review\nDisallow: /dashboard\nDisallow: /api/\n";
+    const body = "User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /account\nDisallow: /settings\nDisallow: /review\nDisallow: /dashboard\nDisallow: /api/\n";
     return reply.header("cache-control", "public, max-age=300").type("text/plain").send(body);
   });
 

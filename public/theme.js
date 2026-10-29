@@ -1,11 +1,14 @@
 (function () {
-  var theme = "light";
+  var choice = "system";
   try {
     var stored = localStorage.getItem("hm-theme");
-    if (stored === "light" || stored === "dark") theme = stored;
-    else if (window.matchMedia("(prefers-color-scheme: dark)").matches) theme = "dark";
+    if (stored === "light" || stored === "dark" || stored === "system") choice = stored;
   } catch (err) {
-    theme = "light";
+    choice = "system";
   }
+  var theme = choice === "light" || choice === "dark"
+    ? choice
+    : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.setAttribute("data-theme-choice", choice);
 })();

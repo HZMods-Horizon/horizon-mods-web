@@ -64,6 +64,17 @@ function langSwitch(req, lang) {
   return `<nav class="lang" aria-label="${escape(t(lang, "lang.label"))}">${item("ru", "RU")}${item("en", "EN")}</nav>`;
 }
 
+function accountMenu(actor, tr) {
+  const label = actor.displayName || actor.username;
+  return `<div class="account-menu">
+    <button type="button" class="who" data-ui data-account-toggle aria-haspopup="true" aria-expanded="false" aria-label="${escape(tr("nav.menuAccount"))}">${userFace(actor, "sm")}<span>${escape(label)}</span></button>
+    <div class="menu-pop" data-account-menu>
+      <a class="btn" data-ui href="/account">${escape(tr("nav.profile"))}</a>
+      <a class="btn" data-ui href="/settings">${escape(tr("nav.settings"))}</a>
+    </div>
+  </div>`;
+}
+
 function nav(req) {
   const { lang, tr } = use(req);
   const actor = req.actor;
@@ -78,7 +89,7 @@ function nav(req) {
   if (actor?.scopes?.includes("admin:write")) links.push(navLink("/admin", tr("nav.admin")));
   links.push(navLink("/submit", tr("nav.submit"), true));
   const session = actor
-    ? `${userLink(actor)}
+    ? `${accountMenu(actor, tr)}
        <form method="post" action="/logout"><input type="hidden" name="_csrf" value="${escape(actor.csrf || "")}"><button class="ghost" type="submit">${escape(tr("nav.logout"))}</button></form>`
     : `${navLink("/login", tr("nav.login"))}${navLink("/register", tr("nav.account"))}`;
   const items = links.join("");
@@ -107,8 +118,8 @@ export function page({ title, description, req, body, robots = false, turnstile 
 <meta name="description" content="${escape(desc)}">
 ${robots ? `<meta name="robots" content="noindex">` : ""}
 <link rel="icon" href="/favicon.svg">
-<script src="/theme.js?v=4"></script>
-<link rel="stylesheet" href="/site.css?v=6">
+<script src="/theme.js?v=5"></script>
+<link rel="stylesheet" href="/site.css?v=7">
 </head>
 <body data-peek-show="${escape(tr("peek.show"))}" data-peek-hide="${escape(tr("peek.hide"))}" data-copied="${escape(tr("copied"))}" data-file-none="${escape(tr("file.none"))}">
 <a class="skip" href="#main">${escape(tr("skip"))}</a>
@@ -132,7 +143,7 @@ ${nav(req)}
     </p>
   </div>
 </div>
-<script src="/site.js?v=6" defer></script>
+<script src="/site.js?v=7" defer></script>
 ${turnstile ? `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ""}
 </body>
 </html>`;
@@ -459,16 +470,14 @@ function mediaPreview(user, kind) {
   return `<img class="${cls}" src="/u/${escape(user.username)}/${kind}?v=${stampOf(user)}" alt="">`;
 }
 
-export function renderAccount(req, profile, keys, secret = "", error = "") {
+export function renderAccount(req, profile, error = "") {
   const { lang, tr } = use(req);
   const user = profile || { username: req.actor.username, links: [] };
-  const rows = keys.map((key) => `<li><span class="mono">${escape(key.prefix)}…</span> ${escape(key.name)} ${key.revoked_at ? `<i>${escape(tr("account.revoked"))}</i>` : `<form method="post" action="/account/keys/${escape(key.id)}/revoke">${hidden("_csrf", req.actor.csrf)}<button class="ghost" type="submit" data-confirm="${escape(tr("confirm.revokeKey"))}">${escape(tr("account.revoke"))}</button></form>`}</li>`).join("");
   const body = `${flashFrom(req.query, lang)}
-  <h1>${escape(tr("account.h1"))}</h1>
+  <h1>${escape(tr("profile.title"))}</h1>
   <p class="row">${userLink(user)} <span class="tag">${escape(req.actor.role)}</span></p>
   ${error ? note("bad", error, lang) : ""}
   <section class="sheet">
-  <h2>${escape(tr("profile.h2"))}</h2>
   <p class="lead">${escape(tr("profile.lead"))} <a href="/u/${escape(user.username)}">${escape(tr("profile.public"))}</a></p>
   <form method="post" action="/account/profile" enctype="multipart/form-data" class="stack wide">
     ${hidden("_csrf", req.actor.csrf)}
@@ -484,8 +493,23 @@ export function renderAccount(req, profile, keys, secret = "", error = "") {
     ${user.banner_ext ? check("remove_banner", tr("profile.removeBanner")) : ""}
     <button type="submit">${escape(tr("profile.save"))}</button>
   </form>
-  </section>
-  ${secret ? alertHtml("ok", `<p>${escape(tr("account.secret"))} <span class="mono" data-copy-text>${escape(secret)}</span></p><button type="button" class="ghost" data-ui data-copy>${escape(tr("copy"))}</button>`, lang) : ""}
+  </section>`;
+  return page({ title: tr("profile.title"), req, body, robots: true });
+}
+
+export function renderSettings(req, { tab = "account", keys = [], secret = "", error = "" } = {}) {
+  const { lang, tr } = use(req);
+  const name = tab === "site" ? "site" : "account";
+  const tabLink = (id, label) => {
+    const href = id === "site" ? "/settings?tab=site" : "/settings";
+    const on = id === name;
+    return `<a class="${on ? "btn" : "btn ghost"}" href="${href}"${on ? ' aria-current="page"' : ""}>${escape(label)}</a>`;
+  };
+  const rows = keys.map((key) => `<li><span class="mono">${escape(key.prefix)}…</span> ${escape(key.name)} ${key.revoked_at ? `<i>${escape(tr("account.revoked"))}</i>` : `<form method="post" action="/account/keys/${escape(key.id)}/revoke">${hidden("_csrf", req.actor.csrf)}<button class="ghost" type="submit" data-confirm="${escape(tr("confirm.revokeKey"))}">${escape(tr("account.revoke"))}</button></form>`}</li>`).join("");
+  const nextSite = encodeURIComponent("/settings?tab=site");
+  const langBtn = (code, label) => `<a class="${lang === code ? "btn" : "btn ghost"}" href="/lang/${code}?next=${nextSite}" hreflang="${code}" lang="${code}">${escape(label)}</a>`;
+  const themeBtn = (id, label) => `<button type="button" data-theme-set="${id}" aria-pressed="false">${escape(label)}</button>`;
+  const accountPane = `${secret ? alertHtml("ok", `<p>${escape(tr("account.secret"))} <span class="mono" data-copy-text>${escape(secret)}</span></p><button type="button" class="ghost" data-ui data-copy>${escape(tr("copy"))}</button>`, lang) : ""}
   <section class="sheet narrow">
   <h2>${escape(tr("account.password"))}</h2>
   <form method="post" action="/account/password" class="stack">
@@ -507,7 +531,21 @@ export function renderAccount(req, profile, keys, secret = "", error = "") {
     <button type="submit">${escape(tr("account.issue"))}</button>
   </form>
   </section>`;
-  return page({ title: tr("account.title"), req, body, robots: true });
+  const sitePane = `<section class="sheet">
+  <h2>${escape(tr("settings.lang"))}</h2>
+  <p class="lead">${escape(tr("settings.lang.lead"))}</p>
+  <p class="row">${langBtn("ru", tr("settings.lang.ru"))} ${langBtn("en", tr("settings.lang.en"))}</p>
+  <h2>${escape(tr("settings.theme"))}</h2>
+  <p class="lead">${escape(tr("settings.theme.lead"))}</p>
+  <p class="row">${themeBtn("light", tr("settings.theme.light"))} ${themeBtn("dark", tr("settings.theme.dark"))} ${themeBtn("system", tr("settings.theme.system"))}</p>
+  </section>`;
+  const body = `${flashFrom(req.query, lang)}
+  <h1>${escape(tr("settings.h1"))}</h1>
+  <p class="lead">${escape(tr(name === "site" ? "settings.site.lead" : "settings.account.lead"))}</p>
+  ${error ? note("bad", error, lang) : ""}
+  <nav class="row tabs" aria-label="${escape(tr("settings.tabs"))}">${tabLink("account", tr("settings.tab.account"))}${tabLink("site", tr("settings.tab.site"))}</nav>
+  ${name === "site" ? sitePane : accountPane}`;
+  return page({ title: tr("settings.title"), req, body, robots: true });
 }
 
 export function renderDashboard(req, projects) {
@@ -515,7 +553,7 @@ export function renderDashboard(req, projects) {
   const cards = projects.length
     ? projects.map((item) => `<a class="card" href="/mods/${escape(item.id)}">${letter(item.name)}<span><b>${escape(item.name)}</b> <span class="tag">${escape(statusLabel(item.status, lang))}</span><em>${escape(item.summary)}</em><small>${escape(tr("dash.count", { kind: kindLabel(item.kind, lang), count: Number(item.version_count) || 0 }))}</small></span></a>`).join("")
     : blank(tr("dash.empty"));
-  const body = `${flashFrom(req.query, lang)}<h1>${escape(tr("dash.h1"))}</h1><p class="row"><a class="btn" href="/submit">${escape(tr("dash.new"))}</a> <a href="/account">${escape(tr("dash.account"))}</a></p><div class="cards">${cards}</div>`;
+  const body = `${flashFrom(req.query, lang)}<h1>${escape(tr("dash.h1"))}</h1><p class="row"><a class="btn" href="/submit">${escape(tr("dash.new"))}</a> <a href="/account">${escape(tr("dash.account"))}</a> <a href="/settings">${escape(tr("nav.settings"))}</a></p><div class="cards">${cards}</div>`;
   return page({ title: tr("dash.title"), req, body, robots: true });
 }
 

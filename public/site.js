@@ -1,21 +1,49 @@
 (function () {
-  var button = document.querySelector("[data-theme-toggle]");
-  if (button) {
-    button.addEventListener("click", function () {
-      var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-      document.documentElement.setAttribute("data-theme", next);
-      try { localStorage.setItem("hm-theme", next); } catch (err) { /* storage can be blocked */ }
+  function themeChoice() {
+    try {
+      var stored = localStorage.getItem("hm-theme");
+      if (stored === "light" || stored === "dark" || stored === "system") return stored;
+    } catch (err) { /* storage can be blocked */ }
+    return "system";
+  }
+
+  function applyTheme(choice) {
+    var theme = choice;
+    if (choice !== "light" && choice !== "dark") {
+      choice = "system";
+      theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.setAttribute("data-theme-choice", choice);
+    try { localStorage.setItem("hm-theme", choice); } catch (err) { /* storage can be blocked */ }
+    document.querySelectorAll("[data-theme-set]").forEach(function (el) {
+      var on = el.getAttribute("data-theme-set") === choice;
+      el.setAttribute("aria-pressed", on ? "true" : "false");
     });
   }
+
+  var themeButton = document.querySelector("[data-theme-toggle]");
+  if (themeButton) {
+    themeButton.addEventListener("click", function () {
+      applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    });
+  }
+  document.querySelectorAll("[data-theme-set]").forEach(function (el) {
+    el.addEventListener("click", function () { applyTheme(el.getAttribute("data-theme-set")); });
+  });
+  applyTheme(themeChoice());
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+    if (themeChoice() === "system") applyTheme("system");
+  });
 
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
   var groups = [
-    [".desk, .nav-panel", "a, button:not([data-ui])"],
-    [".row", "a.btn, a.nav-link, a.who, button:not([data-ui])"],
-    [".foot-links, .pager", "a, button:not([data-ui])"],
+    [".desk, .nav-panel", "a:not([data-ui]), button:not([data-ui])"],
+    [".row", "a.btn:not([data-ui]), a.nav-link, a.who, button:not([data-ui])"],
+    [".foot-links, .pager", "a:not([data-ui]), button:not([data-ui])"],
     [".lang", "a"],
-    [".who-row", "a, button:not([data-ui])"],
+    [".who-row", "a:not([data-ui]), button:not([data-ui])"],
     [".user-row", "button:not([data-ui])"],
   ];
   var hosts = [];
@@ -36,15 +64,16 @@
     var left = targetBox.left - hostBox.left - edge.left;
     var top = targetBox.top - hostBox.top - edge.top;
     var solid = target.matches("button, .btn, summary") || host.classList.contains("lang");
+    var radius = getComputedStyle(target).borderRadius;
     blob.classList.toggle("on-solid", solid);
     blob.classList.toggle("on-link", !solid);
+    blob.style.borderRadius = radius;
     if (instant || !host.ready) {
       blob.style.transition = "none";
       blob.style.left = left + "px";
       blob.style.top = top + "px";
       blob.style.width = targetBox.width + "px";
       blob.style.height = targetBox.height + "px";
-      blob.style.borderRadius = getComputedStyle(target).borderRadius;
       blob.offsetWidth;
       blob.style.transition = "";
       host.ready = true;
@@ -58,14 +87,13 @@
     blob.style.width = (unionRight - unionLeft) + "px";
     blob.style.top = top + "px";
     blob.style.height = targetBox.height + "px";
-    blob.style.borderRadius = "999px";
     clearTimeout(host.timer);
     host.timer = setTimeout(function () {
       if (host.current !== target) return;
       blob.style.left = left + "px";
       blob.style.width = targetBox.width + "px";
-      blob.style.borderRadius = getComputedStyle(target).borderRadius;
-    }, 150);
+      blob.style.borderRadius = radius;
+    }, 70);
   }
 
   function mark(host, target) {
@@ -79,7 +107,7 @@
     clearTimeout(host.leaveTimer);
     host.leaveTimer = setTimeout(function () {
       host.querySelectorAll(".flow-leave").forEach(function (el) { el.classList.remove("flow-leave"); });
-    }, 420);
+    }, 240);
   }
 
   function clearMark(host) {
@@ -349,6 +377,16 @@
         if (back) back.focus();
         return;
       }
+      var openMenu = document.querySelector("[data-account-menu]:not([hidden])");
+      if (openMenu) {
+        openMenu.hidden = true;
+        var menuToggle = openMenu.parentElement && openMenu.parentElement.querySelector("[data-account-toggle]");
+        if (menuToggle) {
+          menuToggle.setAttribute("aria-expanded", "false");
+          menuToggle.focus();
+        }
+        return;
+      }
       closeModal();
       return;
     }
@@ -383,6 +421,31 @@
       name.textContent = file ? file.name : (document.body.dataset.fileNone || "");
     });
   });
+
+  function closeAccountMenus(except) {
+    document.querySelectorAll("[data-account-menu]").forEach(function (menu) {
+      if (menu === except) return;
+      menu.hidden = true;
+      var toggle = menu.parentElement && menu.parentElement.querySelector("[data-account-toggle]");
+      if (toggle) toggle.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  document.querySelectorAll("[data-account-toggle]").forEach(function (toggle) {
+    var menu = toggle.parentElement && toggle.parentElement.querySelector("[data-account-menu]");
+    if (!menu) return;
+    toggle.parentElement.classList.add("is-ready");
+    menu.hidden = true;
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.addEventListener("click", function (event) {
+      event.stopPropagation();
+      var willOpen = menu.hidden;
+      closeAccountMenus(willOpen ? menu : null);
+      menu.hidden = !willOpen;
+      toggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    });
+  });
+  document.addEventListener("click", function () { closeAccountMenus(null); });
 
   document.querySelectorAll("[data-swatch]").forEach(function (swatch) {
     var input = swatch.parentElement && swatch.parentElement.querySelector("input");

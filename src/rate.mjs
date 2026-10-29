@@ -82,7 +82,7 @@ export function routeBuckets(req) {
     else buckets.push({ name: "download-ip", id: ip, limit: rate.downloadAnonPerMin, windowSec: 60 });
   } else if (method === "POST" && (path === "/submit" || /\/versions$/.test(path) || /\/version$/.test(path))) {
     buckets.push({ name: "upload", id: actor?.id || ip, limit: rate.uploadPerHour, windowSec: 3600 });
-  } else if (path.startsWith("/api/") || path.startsWith("/mods") || path.startsWith("/review") || path.startsWith("/admin") || path.startsWith("/account") || path.startsWith("/dashboard")) {
+  } else if (path.startsWith("/api/") || path.startsWith("/mods") || path.startsWith("/review") || path.startsWith("/admin") || path.startsWith("/account") || path.startsWith("/settings") || path.startsWith("/dashboard")) {
     if (actor?.kind === "key") {
       buckets.push({
         name: write ? "key-write" : "key-read",

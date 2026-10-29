@@ -172,7 +172,7 @@ test("страницы, документы, формы и отказы", { timeo
     assert.equal(badLang.statusCode, 303);
     assert.equal(badLang.headers.location, "/");
 
-    for (const url of ["/account", "/dashboard", "/submit", "/admin", "/review"]) {
+    for (const url of ["/account", "/settings", "/dashboard", "/submit", "/admin", "/review"]) {
       const locked = await app.inject({ method: "GET", url, headers: { accept: "text/html" } });
       assert.equal(locked.statusCode, 303, url);
       assert.match(locked.headers.location, /^\/login\?next=/);
@@ -253,12 +253,27 @@ test("страницы, документы, формы и отказы", { timeo
     assert.match(account.body, /name="avatar"/);
     assert.match(account.body, /name="banner"/);
     assert.match(account.body, /name="display_name"/);
-    assert.match(account.body, /class="check"/);
     assert.match(account.body, /class="file"/);
     assert.match(account.body, /data-swatch/);
-    assert.match(account.body, /data-peek/);
-    assert.match(account.body, /type="checkbox"/);
+    assert.match(account.body, /data-account-toggle/);
+    assert.match(account.body, /data-account-menu/);
+    assert.match(account.body, /href="\/settings"/);
     assert.match(account.body, /type="file"/);
+    const settings = await app.inject({ method: "GET", url: "/settings", headers: { accept: "text/html", cookie: session } });
+    assert.equal(settings.statusCode, 200);
+    assert.match(settings.body, /name="current"/);
+    assert.match(settings.body, /name="next"/);
+    assert.match(settings.body, /data-peek/);
+    assert.match(settings.body, /class="check"/);
+    assert.match(settings.body, /type="checkbox"/);
+    assert.match(settings.body, /href="\/settings\?tab=site"/);
+    assert.match(settings.body, /aria-current="page"/);
+    const siteTab = await app.inject({ method: "GET", url: "/settings?tab=site", headers: { accept: "text/html", cookie: session } });
+    assert.equal(siteTab.statusCode, 200);
+    assert.match(siteTab.body, /data-theme-set="light"/);
+    assert.match(siteTab.body, /data-theme-set="dark"/);
+    assert.match(siteTab.body, /data-theme-set="system"/);
+    assert.match(siteTab.body, /\/lang\/en\?next=/);
     const accountCsrf = /name="_csrf" value="([^"]+)"/.exec(account.body)?.[1];
     const badAccent = fields({
       _csrf: accountCsrf,
