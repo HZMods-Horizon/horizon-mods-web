@@ -64,13 +64,13 @@ Light `:root` is the default. Dark comes from `prefers-color-scheme` and `[data-
 
 The footer word is `HZMODS`. The Discord invite `https://discord.gg/jRaVR4xdmb` is in the footer, not the navbar. Source link: `https://github.com/HZMods-Horizon/horizon-mods-web`.
 
-Do not remove the water hover, custom selects, custom alerts, bilingual switch, follows, stats, the settings shell, the profile head, or the gallery. The water blob copies `getComputedStyle(target).borderRadius`. Do not set `borderRadius` to `999px`.
+Do not bring back the water hover on buttons. Keep custom selects, custom alerts, the bilingual switch, follows, stats, the settings shell, the profile head, and the gallery. Do not set `borderRadius` to `999px`.
 
 Custom selects portal `.pick-menu` to `document.body` with `position: fixed` and z-index 20. Do not put the menu back to `position: absolute` inside `.pick`. The account menu is Profile (`/account`) and Settings (`/settings`). Logout sits beside it.
 
 The header is one fixed row: the HZMODS mark, links, language, account, theme, and submit. Links fold into the menu at 1100px. Tools fold into the menu at 900px.
 
-Asset cache in `src/html.mjs`: `theme.js?v=5`, `site.css?v=16`, `site.js?v=11`. When one of those files changes, bump its query and the matching assertion in `test/http.test.mjs`.
+Asset cache in `src/html.mjs`: `theme.js?v=5`, `site.css?v=17`, `site.js?v=12`. When one of those files changes, bump its query and the matching assertion in `test/http.test.mjs`.
 
 A version file input uses `fileField`. Several files set `multiple` and `data-file-many` from `file.many` (`{n}` files). `public/site.js` shows that count.
 
