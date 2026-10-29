@@ -70,7 +70,9 @@ Custom selects portal `.pick-menu` to `document.body` with `position: fixed` and
 
 The header is one fixed row: the HZMODS mark, links, language, account, theme, and submit. Links fold into the menu at 1100px. Tools fold into the menu at 900px.
 
-Asset cache in `src/html.mjs`: `theme.js?v=5`, `site.css?v=18`, `site.js?v=13`. When one of those files changes, bump its query and the matching assertion in `test/http.test.mjs`.
+Asset cache in `src/html.mjs`: `theme.js?v=5`, `site.css?v=19`, `site.js?v=13`. When one of those files changes, bump its query and the matching assertion in `test/http.test.mjs`.
+
+The public pages follow Modrinth's layout: a search field in the bar, a catalog with a kind column and project cards, and a mod page with the title block plus a side panel. Colors, type, and square panels stay Horizon.
 
 A version file input uses `fileField`. Several files set `multiple` and `data-file-many` from `file.many` (`{n}` files). `public/site.js` shows that count.
 

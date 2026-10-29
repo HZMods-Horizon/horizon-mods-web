@@ -101,9 +101,12 @@ function nav(req) {
     : `${navLink("/login", tr("nav.login"), false, onPath(req, "/login"))}${navLink("/register", tr("nav.account"), false, onPath(req, "/register"))}`;
   const items = links.join("");
   const tools = `${langSwitch(req, lang)}<div class="who-row">${session}</div>${theme}${submit}`;
+  const q = escape(req.query?.q || "");
+  const search = `<form class="nav-search" method="get" action="/mods" role="search"><input type="search" name="q" value="${q}" placeholder="${escape(tr("mods.search"))}" aria-label="${escape(tr("mods.search"))}"></form>`;
   return `<header class="top">
     <div class="top-row">
       <a class="mark" href="/"><span class="pixel">HZMODS</span></a>
+      ${search}
       <nav class="desk">${items}</nav>
       <div class="tools">${tools}</div>
       <details class="mob">
@@ -128,7 +131,7 @@ export function page({ title, description, req, body, robots = false, turnstile 
 ${robots ? `<meta name="robots" content="noindex">` : ""}
 <link rel="icon" href="/favicon.svg">
 <script src="/theme.js?v=5"></script>
-<link rel="stylesheet" href="/site.css?v=18">
+<link rel="stylesheet" href="/site.css?v=19">
 </head>
 <body data-peek-show="${escape(tr("peek.show"))}" data-peek-hide="${escape(tr("peek.hide"))}" data-copied="${escape(tr("copied"))}" data-file-none="${escape(tr("file.none"))}">
 <a class="skip" href="#main">${escape(tr("skip"))}</a>
@@ -368,15 +371,32 @@ export function renderMods(req, data) {
   const cards = data.rows.length
     ? data.rows.map((item) => `<a class="card" href="/mods/${escape(item.id)}">${cardMark(item)}<span><b>${escape(item.name)}</b> <i>${escape(kindLabel(item.kind, lang))}</i><em>${escape(item.summary)}</em><small class="by">${authorMark(item)}${escape(tr("mods.by", { user: item.display_name || item.username, count: Number(item.downloads) || 0 }))}</small></span></a>`).join("")
     : blank(tr("mods.empty"));
+  const kind = String(req.query.kind || "");
+  const q = String(req.query.q || "");
+  const facets = [["", tr("kind.all")], ...KINDS.map((id) => [id, kindLabel(id, lang)])].map(([id, label]) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (id) params.set("kind", id);
+    const href = params.size ? `/mods?${params}` : "/mods";
+    const on = kind === id;
+    return `<a href="${href}"${on ? ' class="on" aria-current="page"' : ""}>${escape(label)}</a>`;
+  }).join("");
   const body = `${flashFrom(req.query, lang)}
   <h1>${escape(tr("mods.title"))}</h1>
-  <form class="filters sheet" method="get" action="/mods">
-    ${field(tr("mods.search"), "q", req.query.q || "", { max: 80 })}
-    ${select(tr("mods.kind"), "kind", req.query.kind || "", kindOptions(lang, true))}
-    <button type="submit">${escape(tr("mods.find"))}</button>
-  </form>
-  <div class="cards">${cards}</div>
-  <p class="pager">${escape(tr("mods.page", { page: data.page, pages: data.pages }))}${data.page > 1 ? ` <a href="/mods?page=${data.page - 1}">${escape(tr("mods.prev"))}</a>` : ""}${data.page < data.pages ? ` <a href="/mods?page=${data.page + 1}">${escape(tr("mods.next"))}</a>` : ""}</p>`;
+  <div class="browse">
+    <aside class="browse-side">
+      <nav class="facet" aria-label="${escape(tr("mods.kind"))}">${facets}</nav>
+      <form class="filters sheet" method="get" action="/mods">
+        ${field(tr("mods.search"), "q", req.query.q || "", { max: 80 })}
+        ${select(tr("mods.kind"), "kind", req.query.kind || "", kindOptions(lang, true))}
+        <button type="submit">${escape(tr("mods.find"))}</button>
+      </form>
+    </aside>
+    <div>
+      <div class="cards browse-list">${cards}</div>
+      <p class="pager">${escape(tr("mods.page", { page: data.page, pages: data.pages }))}${data.page > 1 ? ` <a href="/mods?page=${data.page - 1}">${escape(tr("mods.prev"))}</a>` : ""}${data.page < data.pages ? ` <a href="/mods?page=${data.page + 1}">${escape(tr("mods.next"))}</a>` : ""}</p>
+    </div>
+  </div>`;
   return page({ title: tr("mods.title"), req, body });
 }
 
@@ -462,17 +482,39 @@ export function renderProject(req, view, csrf = "", errs = []) {
   const ownerBits = view.owner
     ? `<p class="split"><a class="btn" href="/mods/${escape(project.id)}/version">${escape(tr("project.upload"))}</a> <a class="btn ghost" href="/mods/${escape(project.id)}/edit">${escape(tr("project.edit"))}</a></p>`
     : "";
+  const published = view.versions.find((item) => item.status === "published");
+  const download = published
+    ? `<a class="btn" href="/download/${escape(project.id)}/${escape(published.version)}/${escape(published.file)}">${escape(tr("project.download", { file: published.file }))}</a>`
+    : "";
   const body = `${flashFrom(req.query, lang)}
-  <p class="kicker">${escape(kindLabel(project.kind, lang))} · ${escape(statusLabel(project.status, lang))} · ${escape(project.game)}</p>
-  <h1>${letter(project.name)} ${escape(project.name)}</h1>
-  <p class="lead">${escape(project.summary)}</p>
+  <header class="mod-head">
+    ${cardMark(project)}
+    <div>
+      <p class="kicker">${escape(kindLabel(project.kind, lang))} · ${escape(statusLabel(project.status, lang))} · ${escape(project.game)}</p>
+      <h1>${escape(project.name)}</h1>
+      <p class="lead">${escape(project.summary)}</p>
+      <p class="row">${userLink(project)}</p>
+    </div>
+  </header>
   ${project.kind === "native-mod" ? note("warn", tr("project.native"), lang) : ""}
-  <p class="row">${userLink(project)} <span>· ${escape(project.license)} · <a href="${escape(project.source_url)}">${escape(tr("project.source"))}</a></span></p>
-  ${gallerySection(project, view.media, view.owner, csrf, lang, tr, errs)}
-  ${project.description ? `<div class="sheet prose">${escape(project.description)}</div>` : ""}
-  ${ownerBits}
-  <h2>${escape(tr("project.versions"))}</h2>
-  ${view.versions.length ? view.versions.map((item) => versionBlock(project.id, item, view.owner || view.reviewer, lang, tr)).join("") : blank(tr("project.empty"))}`;
+  <div class="mod-layout">
+    <div class="mod-main">
+      ${gallerySection(project, view.media, view.owner, csrf, lang, tr, errs)}
+      ${project.description ? `<div class="sheet prose">${escape(project.description)}</div>` : ""}
+      <h2>${escape(tr("project.versions"))}</h2>
+      ${view.versions.length ? view.versions.map((item) => versionBlock(project.id, item, view.owner || view.reviewer, lang, tr)).join("") : blank(tr("project.empty"))}
+    </div>
+    <aside class="mod-side">
+      ${download}
+      ${ownerBits}
+      <section class="sheet meta">
+        <p><b>${escape(tr("submit.license"))}</b> ${escape(project.license)}</p>
+        <p><b>${escape(tr("submit.game"))}</b> ${escape(project.game)}</p>
+        <p><b>${escape(tr("submit.kind"))}</b> ${escape(kindLabel(project.kind, lang))}</p>
+        <p><a href="${escape(project.source_url)}">${escape(tr("project.source"))}</a></p>
+      </section>
+    </aside>
+  </div>`;
   return page({ title: project.name, description: project.summary, req, body, robots: project.status !== "published" });
 }
 
