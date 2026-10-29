@@ -189,38 +189,64 @@
   function closePick(pick) {
     if (!pick) return;
     pick.classList.remove("is-open");
-    var menu = pick.querySelector(".pick-menu");
+    var menu = pick.menuEl;
     var btn = pick.querySelector(".pick-btn");
     if (menu) menu.hidden = true;
     if (btn) btn.setAttribute("aria-expanded", "false");
     if (openPick === pick) openPick = null;
   }
 
-  function placeMenu(menu) {
-    menu.style.top = "";
-    menu.style.bottom = "";
-    var rect = menu.getBoundingClientRect();
-    if (rect.bottom > window.innerHeight - 8 && rect.top > rect.height + 8) {
-      menu.style.top = "auto";
-      menu.style.bottom = "calc(100% + 6px)";
-    }
+  function placeMenu(pick) {
+    var menu = pick.menuEl;
+    var btn = pick.querySelector(".pick-btn");
+    if (!menu || !btn || menu.hidden) return;
+    var rect = btn.getBoundingClientRect();
+    var gap = 6;
+    var edge = 8;
+    var width = Math.min(Math.max(rect.width, 160), window.innerWidth - edge * 2);
+    var left = rect.left;
+    if (left + width > window.innerWidth - edge) left = window.innerWidth - edge - width;
+    if (left < edge) left = edge;
+    var spaceBelow = window.innerHeight - rect.bottom - gap - edge;
+    var spaceAbove = rect.top - gap - edge;
+    var openDown = spaceBelow >= 120 || spaceBelow >= spaceAbove;
+    var maxH = Math.max(72, Math.min(280, openDown ? spaceBelow : spaceAbove));
+    menu.style.left = left + "px";
+    menu.style.width = width + "px";
+    menu.style.bottom = "auto";
+    menu.style.maxHeight = maxH + "px";
+    menu.style.top = "0px";
+    var height = menu.offsetHeight;
+    if (openDown) menu.style.top = (rect.bottom + gap) + "px";
+    else menu.style.top = Math.max(edge, rect.top - gap - height) + "px";
+  }
+
+  function focusOpt(item) {
+    if (!item) return;
+    if (item.focus) item.focus({ preventScroll: true });
+    var menu = item.parentElement;
+    if (!menu) return;
+    var top = item.offsetTop;
+    var bottom = top + item.offsetHeight;
+    if (top < menu.scrollTop) menu.scrollTop = top;
+    else if (bottom > menu.scrollTop + menu.clientHeight) menu.scrollTop = bottom - menu.clientHeight;
   }
 
   function openMenu(pick) {
     document.querySelectorAll(".pick.is-open").forEach(function (other) {
       if (other !== pick) closePick(other);
     });
-    var menu = pick.querySelector(".pick-menu");
+    var menu = pick.menuEl;
     var btn = pick.querySelector(".pick-btn");
     pick.classList.add("is-open");
     if (menu) {
       menu.hidden = false;
-      placeMenu(menu);
+      placeMenu(pick);
     }
     if (btn) btn.setAttribute("aria-expanded", "true");
     openPick = pick;
     var current = menu && (menu.querySelector('[aria-selected="true"]') || menu.querySelector(".pick-opt"));
-    if (current) current.focus();
+    focusOpt(current);
   }
 
   document.querySelectorAll(".pick").forEach(function (pick) {
@@ -228,6 +254,7 @@
     if (!select) return;
     select.classList.add("pick-native");
     select.tabIndex = -1;
+    select.setAttribute("aria-hidden", "true");
     var chosen = select.options[select.selectedIndex];
     var btn = document.createElement("button");
     btn.type = "button";
@@ -236,10 +263,16 @@
     btn.setAttribute("aria-haspopup", "listbox");
     btn.setAttribute("aria-expanded", "false");
     btn.textContent = chosen ? chosen.textContent : "";
+    if (select.id) {
+      btn.id = select.id;
+      select.id = select.id + "-value";
+    }
     var menu = document.createElement("div");
     menu.className = "pick-menu";
+    menu.id = (btn.id || select.name || "pick") + "-list";
     menu.setAttribute("role", "listbox");
     menu.hidden = true;
+    btn.setAttribute("aria-controls", menu.id);
     Array.prototype.forEach.call(select.options, function (opt) {
       var item = document.createElement("button");
       item.type = "button";
@@ -267,19 +300,40 @@
       else openMenu(pick);
     });
     btn.addEventListener("keydown", function (event) {
-      if (event.key === "ArrowDown" && !pick.classList.contains("is-open")) {
-        event.preventDefault();
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      event.preventDefault();
+      if (!pick.classList.contains("is-open")) {
         openMenu(pick);
+        return;
       }
+      var list = pick.menuEl;
+      var current = list && (list.querySelector('[aria-selected="true"]') || list.querySelector(".pick-opt"));
+      focusOpt(current);
     });
     select.addEventListener("focus", function () { btn.focus(); });
     select.addEventListener("invalid", function (event) {
       event.preventDefault();
       openMenu(pick);
     });
+    pick.menuEl = menu;
     pick.appendChild(btn);
-    pick.appendChild(menu);
+    document.body.appendChild(menu);
     pick.classList.add("is-ready");
+  });
+
+  window.addEventListener("resize", function () {
+    if (openPick) placeMenu(openPick);
+  });
+  document.addEventListener("scroll", function (event) {
+    if (!openPick || !openPick.menuEl) return;
+    if (event.target === openPick.menuEl) return;
+    placeMenu(openPick);
+  }, true);
+  document.addEventListener("focusin", function (event) {
+    if (!openPick) return;
+    var target = event.target;
+    if (openPick.contains(target) || (openPick.menuEl && openPick.menuEl.contains(target))) return;
+    closePick(openPick);
   });
 
   function closeModal() {
@@ -296,6 +350,7 @@
       if (button.form) button.form.requestSubmit(button);
       return;
     }
+    closePick(openPick);
     pending = button;
     lastFocus = document.activeElement;
     modalText.textContent = button.getAttribute("data-confirm") || "";
@@ -366,7 +421,7 @@
       if (button && button.form && button.form.requestSubmit) button.form.requestSubmit(button);
       return;
     }
-    if (openPick && !openPick.contains(event.target)) closePick(openPick);
+    if (openPick && !openPick.contains(event.target) && !(openPick.menuEl && openPick.menuEl.contains(event.target))) closePick(openPick);
   });
 
   document.addEventListener("keydown", function (event) {
@@ -405,12 +460,21 @@
     }
     var opt = event.target.closest && event.target.closest(".pick-opt");
     if (!opt) return;
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-    event.preventDefault();
     var items = Array.prototype.slice.call(opt.parentElement.querySelectorAll(".pick-opt"));
     var index = items.indexOf(opt);
-    var next = items[index + (event.key === "ArrowDown" ? 1 : -1)];
-    if (next) next.focus();
+    if (event.key === "Home") {
+      event.preventDefault();
+      focusOpt(items[0]);
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      focusOpt(items[items.length - 1]);
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    focusOpt(items[index + (event.key === "ArrowDown" ? 1 : -1)]);
   });
 
   document.querySelectorAll(".file-input").forEach(function (input) {

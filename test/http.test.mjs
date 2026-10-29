@@ -98,6 +98,9 @@ test("реестр: аккаунт, проверка, индекс, обновл
     assert.match(home.body, /Неофициальный|неофициальный/);
     assert.match(home.body, /Mojang/);
     assert.match(home.body, /lang="ru"/);
+    assert.match(home.body, /https:\/\/discord\.gg\/jRaVR4xdmb/);
+    assert.match(home.body, /site\.css\?v=14/);
+    assert.match(home.body, /site\.js\?v=9/);
     assert.equal((await app.inject({ method: "GET", url: "/healthz" })).statusCode, 200);
     const css = await app.inject({ method: "GET", url: "/site.css" });
     assert.equal(css.statusCode, 200);
@@ -105,7 +108,8 @@ test("реестр: аккаунт, проверка, индекс, обновл
     assert.match(css.body, /--page:\s*#ece7f7/);
     assert.match(css.body, /--face:\s*#5b3fd6/);
     assert.equal(css.body.includes("28px 28px"), false);
-    assert.match(css.body, /\.pick-menu/);
+    assert.match(css.body, /\.pick-menu\s*\{[^}]*position:\s*fixed/);
+    assert.match(css.body, /\.pick-menu\s*\{[^}]*z-index:\s*20/);
     assert.match(css.body, /\.alert/);
     assert.match(css.body, /appearance:\s*none/);
     const mods = await app.inject({ method: "GET", url: "/mods" });
@@ -293,7 +297,7 @@ test("реестр: аккаунт, проверка, индекс, обновл
     assert.match(ownerPage.body, /class="gallery"/);
     assert.match(ownerPage.body, /Скриншоты и видео/);
     assert.match(ownerPage.body, /name="kind" value="video"/);
-    assert.match(ownerPage.body, /site\.css\?v=13/);
+    assert.match(ownerPage.body, /site\.css\?v=14/);
 
     const file = multipart({ version: "1.0.0", changelog: "первый", channel: "release" }, { name: "demo.hmod", bytes: hmod() });
     const uploaded = await app.inject({

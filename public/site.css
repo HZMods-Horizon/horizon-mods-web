@@ -1147,14 +1147,6 @@ html { scrollbar-color: var(--face) var(--page); scrollbar-width: thin; }
   pointer-events: none;
 }
 .pick.is-ready::after { content: none; }
-.pick.is-ready { z-index: 1; }
-.pick.is-open { z-index: 6; }
-.sheet:has(.pick.is-open),
-.filters:has(.pick.is-open),
-.user-row:has(.pick.is-open) {
-  position: relative;
-  z-index: 7;
-}
 .pick.is-ready select {
   position: absolute;
   width: 1px;
@@ -1183,20 +1175,19 @@ html { scrollbar-color: var(--face) var(--page); scrollbar-width: thin; }
   flex: none;
 }
 .pick-menu {
-  position: absolute;
-  z-index: 6;
-  left: 0;
-  right: 0;
-  top: calc(100% + 6px);
+  position: fixed;
+  z-index: 20;
   display: grid;
   gap: 6px;
+  margin: 0;
   padding: 8px;
   background: var(--surface);
   border: var(--block-outline) solid var(--outline);
   border-radius: var(--radius-plate);
   box-shadow: inset 0 var(--block-bevel) 0 var(--bevel), inset 0 calc(var(--block-lip) * -1) 0 var(--lip);
-  max-height: 280px;
+  max-height: min(280px, calc(100vh - 16px));
   overflow: auto;
+  overscroll-behavior: contain;
 }
 .pick-menu[hidden] { display: none !important; }
 .pick-menu .pick-opt {

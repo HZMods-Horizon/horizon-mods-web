@@ -121,7 +121,7 @@ export function page({ title, description, req, body, robots = false, turnstile 
 ${robots ? `<meta name="robots" content="noindex">` : ""}
 <link rel="icon" href="/favicon.svg">
 <script src="/theme.js?v=5"></script>
-<link rel="stylesheet" href="/site.css?v=13">
+<link rel="stylesheet" href="/site.css?v=14">
 </head>
 <body data-peek-show="${escape(tr("peek.show"))}" data-peek-hide="${escape(tr("peek.hide"))}" data-copied="${escape(tr("copied"))}" data-file-none="${escape(tr("file.none"))}">
 <a class="skip" href="#main">${escape(tr("skip"))}</a>
@@ -133,7 +133,7 @@ ${nav(req)}
 <footer>
   <div class="wrap">
     <p>${escape(tr("foot.blurb"))} <a href="https://playhorizon.dev">playhorizon.dev</a>, <a href="https://github.com/horizon-rust/horizon">horizon</a>, <a href="https://github.com/horizon-rust/horizon-mods">horizon-mods</a>, <a href="https://github.com/horizon-rust/horizon-site">horizon-site</a>.</p>
-    <p class="foot-links"><a href="/docs">${escape(tr("foot.docs"))}</a> <a href="/privacy">${escape(tr("foot.privacy"))}</a> <a href="/docs/api">API</a> <a href="https://hzmods.lol">hzmods.lol</a> <a class="btn ghost" href="https://github.com/quomy-code/horizon-mods-web" rel="noreferrer noopener">${escape(tr("foot.source"))}</a> <button type="button" class="ghost" data-theme-toggle>${escape(tr("theme"))}</button></p>
+    <p class="foot-links"><a href="/docs">${escape(tr("foot.docs"))}</a> <a href="/privacy">${escape(tr("foot.privacy"))}</a> <a href="/docs/api">API</a> <a href="https://hzmods.lol">hzmods.lol</a> <a href="https://discord.gg/jRaVR4xdmb" rel="noreferrer noopener">${escape(tr("foot.discord"))}</a> <a class="btn ghost" href="https://github.com/quomy-code/horizon-mods-web" rel="noreferrer noopener">${escape(tr("foot.source"))}</a> <button type="button" class="ghost" data-theme-toggle>${escape(tr("theme"))}</button></p>
   </div>
   <p class="foot-word" aria-hidden="true">HZMODS</p>
 </footer>
@@ -147,7 +147,7 @@ ${nav(req)}
     </p>
   </div>
 </div>
-<script src="/site.js?v=8" defer></script>
+<script src="/site.js?v=9" defer></script>
 ${turnstile ? `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ""}
 </body>
 </html>`;
@@ -193,7 +193,7 @@ function field(label, name, value, opts = {}) {
     const color = /^#[0-9a-fA-F]{6}$/.test(String(value || "")) ? String(value).toLowerCase() : "transparent";
     return `<label>${escape(label)}<span class="with-swatch">${input}<span class="swatch" data-swatch style="background:${color}"></span></span></label>`;
   }
-  return `<label>${escape(label)}>${input}</label>`;
+  return `<label>${escape(label)}${input}</label>`;
 }
 
 let pickSeq = 0;

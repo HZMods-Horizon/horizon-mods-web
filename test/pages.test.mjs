@@ -140,7 +140,8 @@ test("страницы, документы, формы и отказы", { timeo
     assert.match(css.body, /--radius-plate:\s*12px/);
     assert.match(css.body, /--page:\s*#ece7f7/);
     assert.match(css.body, /--face:\s*#5b3fd6/);
-    assert.match(css.body, /\.pick-menu/);
+    assert.match(css.body, /\.pick-menu\s*\{[^}]*position:\s*fixed/);
+    assert.match(css.body, /\.pick-menu\s*\{[^}]*z-index:\s*20/);
     assert.match(css.body, /\.alert/);
     assert.match(css.body, /appearance:\s*none/);
     assert.equal(css.body.includes("28px 28px"), false);
@@ -148,6 +149,8 @@ test("страницы, документы, формы и отказы", { timeo
     const missingHtml = await app.inject({ method: "GET", url: "/no-such-page", headers: { accept: "text/html" } });
     assert.equal(missingHtml.statusCode, 404);
     assert.match(mainOf(missingHtml.body), /На главную|Home/);
+    assert.match(missingHtml.body, /https:\/\/discord\.gg\/jRaVR4xdmb/);
+    assert.match(missingHtml.body, /site\.css\?v=14/);
     const missingJson = await app.inject({ method: "GET", url: "/no-such-page", headers: { accept: "application/json" } });
     assert.equal(missingJson.statusCode, 404);
     assert.equal(missingJson.json().error.code, "not_found");
@@ -340,6 +343,8 @@ test("страницы, документы, формы и отказы", { timeo
     assert.match(submit.body, /name="kind"/);
     assert.match(submit.body, /name="license"/);
     assert.match(submit.body, /class="pick"/);
+    assert.match(submit.body, /<label>[^<>]+<input/);
+    assert.equal(/<label>[^<>]+><input/.test(submit.body), false);
     const updatesPage = await app.inject({ method: "GET", url: "/updates?installed=missing_mod@0.1.0&game=26.3&channel=release", headers: { accept: "text/html" } });
     assert.equal(updatesPage.statusCode, 200);
     assert.match(updatesPage.body, /name="channel"/);
