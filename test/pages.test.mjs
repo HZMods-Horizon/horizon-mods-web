@@ -349,6 +349,46 @@ test("страницы, документы, формы и отказы", { timeo
     const userApi = await app.inject({ method: "GET", url: "/api/v1/users/ada_pages" });
     assert.equal(userApi.statusCode, 200);
     assert.equal(userApi.json().user.username, "ada_pages");
+    assert.equal(typeof userApi.json().stats.followers, "number");
+    assert.match(account.body, /class="settings"/);
+    assert.match(account.body, /class="settings-nav"/);
+    const bea = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/register",
+      payload: { username: "bea_pages", password: "correct-horse-1", turnstileToken: TOKEN },
+    });
+    assert.equal(bea.statusCode, 201, bea.body);
+    const follow = await app.inject({
+      method: "POST",
+      url: "/u/bea_pages/follow",
+      headers: { cookie: session, "content-type": "application/x-www-form-urlencoded" },
+      payload: new URLSearchParams({ _csrf: accountCsrf }).toString(),
+    });
+    assert.equal(follow.statusCode, 303, follow.body);
+    assert.match(follow.headers.location, /\/u\/bea_pages\?ok=followed/);
+    const beaPage = await app.inject({ method: "GET", url: "/u/bea_pages", headers: { accept: "text/html", cookie: session } });
+    assert.equal(beaPage.statusCode, 200);
+    assert.match(beaPage.body, /class="statbar"/);
+    assert.match(beaPage.body, /Вы подписаны|Following/);
+    const followers = await app.inject({ method: "GET", url: "/u/bea_pages/followers", headers: { accept: "text/html" } });
+    assert.equal(followers.statusCode, 200);
+    assert.match(followers.body, /ada_pages/);
+    const following = await app.inject({ method: "GET", url: "/u/ada_pages/following", headers: { accept: "text/html" } });
+    assert.match(following.body, /bea_pages/);
+    const unfollow = await app.inject({
+      method: "POST",
+      url: "/api/v1/users/bea_pages/follow",
+      headers: { cookie: session, "x-csrf-token": me.json().csrf },
+    });
+    assert.equal(unfollow.statusCode, 200, unfollow.body);
+    assert.equal(unfollow.json().following, false);
+    const selfFollow = await app.inject({
+      method: "POST",
+      url: "/u/ada_pages/follow",
+      headers: { accept: "text/html", cookie: session, "content-type": "application/x-www-form-urlencoded" },
+      payload: new URLSearchParams({ _csrf: accountCsrf }).toString(),
+    });
+    assert.equal(selfFollow.statusCode, 400);
     assert.equal((await app.inject({ method: "GET", url: "/api/v1/users/missing_person" })).statusCode, 404);
     assert.equal((await app.inject({ method: "GET", url: "/api/v1/mods/missing_mod" })).statusCode, 404);
     assert.equal((await app.inject({ method: "GET", url: "/download/missing_mod/1.0.0/file.hmod" })).statusCode, 404);

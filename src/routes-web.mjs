@@ -8,8 +8,10 @@ import {
   listUsers,
   loginAccount,
   logoutAccount,
+  listFollows,
   ownProfile,
   publicByName,
+  toggleFollow,
   registerAccount,
   revokeKey,
   saveProfile,
@@ -27,6 +29,7 @@ import {
   renderDocs,
   renderEdit,
   renderError,
+  renderFollowList,
   renderHome,
   renderLogin,
   renderMods,
@@ -443,8 +446,35 @@ export async function registerWeb(app) {
   app.get("/u/:username/avatar", async (req, reply) => sendProfileImage(reply, req.params.username, "avatar"));
   app.get("/u/:username/banner", async (req, reply) => sendProfileImage(reply, req.params.username, "banner"));
 
+  app.get("/u/:username/followers", async (req, reply) => {
+    const found = await listFollows(req.params.username, "followers");
+    if (!found) return show(reply, renderError(req, 404, "Профиля нет"), 404);
+    return sendHtml(reply, renderFollowList(req, found));
+  });
+
+  app.get("/u/:username/following", async (req, reply) => {
+    const found = await listFollows(req.params.username, "following");
+    if (!found) return show(reply, renderError(req, 404, "Профиля нет"), 404);
+    return sendHtml(reply, renderFollowList(req, found));
+  });
+
+  app.post("/u/:username/follow", async (req, reply) => {
+    if (!gate(req, reply)) return;
+    try {
+      assertCsrf(req, req.body || {});
+      const result = await toggleFollow(req.actor, req.params.username);
+      return redirect(reply, `/u/${result.username}?ok=${result.following ? "followed" : "unfollowed"}`);
+    } catch (err) {
+      const http = formError(err);
+      if (!http || http.status >= 500) throw err;
+      const found = await publicByName(req.params.username, req.actor);
+      if (!found) return show(reply, renderError(req, http.status, http.message), http.status);
+      return show(reply, renderProfile(req, found, http.message), http.status);
+    }
+  });
+
   app.get("/u/:username", async (req, reply) => {
-    const found = await publicByName(req.params.username);
+    const found = await publicByName(req.params.username, req.actor);
     if (!found) return show(reply, renderError(req, 404, "Профиля нет"), 404);
     return sendHtml(reply, renderProfile(req, found));
   });

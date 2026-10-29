@@ -650,23 +650,95 @@ img.avatar {
 }
 .avatar.sm { width: 24px; height: 24px; font-size: 11px; }
 .card small.by { display: flex; align-items: center; gap: 6px; }
+.profile { display: grid; gap: 16px; }
 .cover {
-  height: 200px;
+  height: 220px;
   border-radius: var(--radius-plate);
   border: var(--block-outline) solid var(--outline);
   overflow: hidden;
-  background: var(--plate);
+  background:
+    radial-gradient(80% 120% at 10% 0%, color-mix(in srgb, var(--accent) 55%, var(--plate)), transparent 60%),
+    var(--plate);
 }
 .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .profile-head {
   display: flex;
   gap: 16px;
-  align-items: end;
-  margin-top: -48px;
-  padding: 0 16px 8px;
+  align-items: flex-end;
+  margin-top: -56px;
+  padding: 0 8px;
+  position: relative;
 }
-.profile-head .avatar { width: 96px; height: 96px; font-size: 32px; background: var(--surface); }
-.profile-links { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 16px 0; padding: 0; }
+.profile-head .avatar {
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  border: 4px solid var(--surface);
+  box-shadow: 0 0 0 var(--block-outline) var(--outline);
+  font-size: 40px;
+  background: var(--face);
+}
+.profile-id { min-width: 0; padding-bottom: 8px; }
+.profile-id h1, .profile-id h2 { margin: 0 0 4px; }
+.profile-id p { margin: 0 0 4px; color: var(--muted); }
+.profile-actions { margin-left: auto; padding-bottom: 10px; display: flex; gap: 8px; flex: none; }
+.statbar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.stat {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px 14px;
+  background: var(--surface);
+  border: var(--block-outline) solid var(--outline);
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-decoration: none;
+  box-shadow: inset 0 var(--block-bevel) 0 var(--bevel), inset 0 calc(var(--block-lip) * -1) 0 var(--lip);
+}
+.stat b { font-size: 22px; font-weight: 500; letter-spacing: -0.03em; }
+.stat span { color: var(--muted); font-size: 13px; }
+.stat:hover { filter: brightness(1.03); }
+.profile-layout { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.profile-layout > section > h2, .profile-layout > aside > h2 { margin-top: 0; }
+.person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  text-decoration: none;
+}
+.person:last-child { border-bottom: 0; }
+.person b { display: block; font-weight: 500; }
+.person small { color: var(--muted); }
+.settings { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 20px; align-items: start; }
+.settings-nav {
+  display: grid;
+  gap: 4px;
+  position: sticky;
+  top: 108px;
+  padding: 8px;
+  background: var(--surface);
+  border: var(--block-outline) solid var(--outline);
+  border-radius: var(--radius-plate);
+  box-shadow: inset 0 var(--block-bevel) 0 var(--bevel), inset 0 calc(var(--block-lip) * -1) 0 var(--lip);
+}
+.settings-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+.settings-nav a.on { background: var(--face); color: var(--on-face); }
+.settings-main { min-width: 0; }
+.edit-preview .cover { height: 168px; }
+.edit-preview .profile-head { margin-top: -44px; }
+.edit-preview .profile-head .avatar { width: 88px; height: 88px; font-size: 28px; }
+.profile-links { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 16px 0 0; padding: 0; }
 .profile-links a {
   display: inline-flex;
   align-items: center;
@@ -909,6 +981,12 @@ input:focus, textarea:focus, select:focus {
 @media (max-width: 860px) {
   .hero { grid-template-columns: 1fr; }
   .user-row { grid-template-columns: 1fr; }
+  .profile-layout, .settings { grid-template-columns: 1fr; }
+  .settings-nav { position: static; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .settings-nav a { justify-content: center; padding: 0 6px; text-align: center; }
+  .statbar { grid-template-columns: 1fr 1fr; }
+  .profile-head { flex-wrap: wrap; }
+  .profile-actions { margin-left: 0; }
 }
 @media (max-width: 720px) {
   .top-row > .tools { display: none; }

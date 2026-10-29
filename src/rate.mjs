@@ -74,6 +74,10 @@ export function routeBuckets(req) {
     buckets.push({ name: "login-ip", id: ip, limit: rate.loginPer15Min, windowSec: 900 });
   } else if ((path === "/register" || path === "/api/v1/auth/register") && method === "POST") {
     buckets.push({ name: "register", id: ip, limit: rate.registerPerHour, windowSec: 3600 });
+  } else if (method === "POST" && /^\/u\/[^/]+\/follow$/.test(path)) {
+    buckets.push({ name: "user-write", id: actor?.id || ip, limit: rate.userWritePerMin, windowSec: 60 });
+  } else if (method === "POST" && /^\/api\/v1\/users\/[^/]+\/follow$/.test(path)) {
+    buckets.push({ name: actor?.kind === "key" ? "key-write" : "user-write", id: actor?.keyId || actor?.id || ip, limit: actor?.kind === "key" ? rate.keyWritePerMin : rate.userWritePerMin, windowSec: 60 });
   } else if (method === "GET" && /^\/u\/[^/]+\/(avatar|banner)$/.test(path)) {
     if (actor) buckets.push({ name: "download-user", id: actor.id, limit: rate.downloadUserPerMin, windowSec: 60 });
     else buckets.push({ name: "download-ip", id: ip, limit: rate.downloadAnonPerMin, windowSec: 60 });

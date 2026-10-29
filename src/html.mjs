@@ -121,7 +121,7 @@ export function page({ title, description, req, body, robots = false, turnstile 
 ${robots ? `<meta name="robots" content="noindex">` : ""}
 <link rel="icon" href="/favicon.svg">
 <script src="/theme.js?v=5"></script>
-<link rel="stylesheet" href="/site.css?v=8">
+<link rel="stylesheet" href="/site.css?v=9">
 </head>
 <body data-peek-show="${escape(tr("peek.show"))}" data-peek-hide="${escape(tr("peek.hide"))}" data-copied="${escape(tr("copied"))}" data-file-none="${escape(tr("file.none"))}">
 <a class="skip" href="#main">${escape(tr("skip"))}</a>
@@ -220,6 +220,34 @@ function fileField(tr, label, name, opts = {}) {
 function letter(name) {
   const ch = String(name || "?").trim().slice(0, 1).toUpperCase() || "?";
   return `<span class="avatar" aria-hidden="true">${escape(ch)}</span>`;
+}
+
+function formatCount(value, lang) {
+  return new Intl.NumberFormat(lang === "en" ? "en" : "ru").format(Number(value) || 0);
+}
+
+function formatWhen(value, lang) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(lang === "en" ? "en" : "ru", { year: "numeric", month: "short", day: "numeric" }).format(date);
+}
+
+function settingsFrame(req, current, inner) {
+  const { lang, tr } = use(req);
+  const item = (id, href, label) => {
+    const on = id === current;
+    return `<a href="${href}"${on ? ' class="on" aria-current="page"' : ""}>${escape(label)}</a>`;
+  };
+  return `${flashFrom(req.query, lang)}
+  <h1>${escape(tr("settings.h1"))}</h1>
+  <div class="settings">
+    <nav class="settings-nav" aria-label="${escape(tr("settings.tabs"))}">
+      ${item("profile", "/account", tr("settings.tab.profile"))}
+      ${item("account", "/settings", tr("settings.tab.account"))}
+      ${item("site", "/settings?tab=site", tr("settings.tab.site"))}
+    </nav>
+    <div class="settings-main">${inner}</div>
+  </div>`;
 }
 
 function stampOf(row) {
@@ -475,38 +503,46 @@ function mediaPreview(user, kind) {
 export function renderAccount(req, profile, error = "") {
   const { lang, tr } = use(req);
   const user = profile || { username: req.actor.username, links: [] };
-  const body = `${flashFrom(req.query, lang)}
-  <h1>${escape(tr("profile.title"))}</h1>
-  <p class="row">${userLink(user)} <span class="tag">${escape(req.actor.role)}</span></p>
-  ${error ? note("bad", error, lang) : ""}
-  <section class="sheet">
+  const accent = accentOf(user);
+  const coverStyle = accent ? ` style="background:${accent}"` : "";
+  const banner = user.banner_ext ? `<img src="/u/${escape(user.username)}/banner?v=${stampOf(user)}" alt="">` : "";
+  const inner = `${error ? note("bad", error, lang) : ""}
   <p class="lead">${escape(tr("profile.lead"))} <a href="/u/${escape(user.username)}">${escape(tr("profile.public"))}</a></p>
+  <section class="sheet">
   <form method="post" action="/account/profile" enctype="multipart/form-data" class="stack wide">
     ${hidden("_csrf", req.actor.csrf)}
-    <div class="previews">${mediaPreview(user, "avatar")}${mediaPreview(user, "banner")}</div>
-    ${field(tr("profile.display"), "display_name", user.display_name || "", { max: 40 })}
-    ${field(tr("profile.tagline"), "tagline", user.tagline || "", { max: 80 })}
-    ${field(tr("profile.bio"), "bio", user.bio || "", { area: true, max: 2000 })}
-    ${field(tr("profile.accent"), "accent", user.accent || "", { max: 7, placeholder: "#5333c9", swatch: true })}
-    ${linkRows(user.links, tr)}
+    <div class="edit-preview">
+      <div class="cover"${coverStyle}>${banner}</div>
+      <div class="profile-head">
+        ${userFace(user)}
+        <div class="profile-id">
+          <h2>${escape(user.display_name || user.username)}</h2>
+          <p class="mono">@${escape(user.username)}</p>
+        </div>
+      </div>
+    </div>
+    <h2>${escape(tr("profile.images"))}</h2>
     ${fileField(tr, tr("profile.avatar"), "avatar", { accept: "image/png,image/jpeg,image/gif,image/webp" })}
     ${user.avatar_ext ? check("remove_avatar", tr("profile.removeAvatar")) : ""}
     ${fileField(tr, tr("profile.banner"), "banner", { accept: "image/png,image/jpeg,image/gif,image/webp" })}
     ${user.banner_ext ? check("remove_banner", tr("profile.removeBanner")) : ""}
+    <h2>${escape(tr("profile.identity"))}</h2>
+    ${field(tr("profile.display"), "display_name", user.display_name || "", { max: 40 })}
+    ${field(tr("profile.tagline"), "tagline", user.tagline || "", { max: 80 })}
+    ${field(tr("profile.accent"), "accent", user.accent || "", { max: 7, placeholder: "#5333c9", swatch: true })}
+    <h2>${escape(tr("profile.about"))}</h2>
+    ${field(tr("profile.bio"), "bio", user.bio || "", { area: true, max: 2000 })}
+    <h2>${escape(tr("profile.linksTitle"))}</h2>
+    ${linkRows(user.links, tr)}
     <button type="submit">${escape(tr("profile.save"))}</button>
   </form>
   </section>`;
-  return page({ title: tr("profile.title"), req, body, robots: true });
+  return page({ title: tr("profile.title"), req, body: settingsFrame(req, "profile", inner), robots: true });
 }
 
 export function renderSettings(req, { tab = "account", keys = [], secret = "", error = "" } = {}) {
   const { lang, tr } = use(req);
   const name = tab === "site" ? "site" : "account";
-  const tabLink = (id, label) => {
-    const href = id === "site" ? "/settings?tab=site" : "/settings";
-    const on = id === name;
-    return `<a class="${on ? "btn" : "btn ghost"}" href="${href}"${on ? ' aria-current="page"' : ""}>${escape(label)}</a>`;
-  };
   const rows = keys.map((key) => `<li><span class="mono">${escape(key.prefix)}…</span> ${escape(key.name)} ${key.revoked_at ? `<i>${escape(tr("account.revoked"))}</i>` : `<form method="post" action="/account/keys/${escape(key.id)}/revoke">${hidden("_csrf", req.actor.csrf)}<button class="ghost" type="submit" data-confirm="${escape(tr("confirm.revokeKey"))}">${escape(tr("account.revoke"))}</button></form>`}</li>`).join("");
   const nextSite = encodeURIComponent("/settings?tab=site");
   const langBtn = (code, label) => `<a class="${lang === code ? "btn" : "btn ghost"}" href="/lang/${code}?next=${nextSite}" hreflang="${code}" lang="${code}">${escape(label)}</a>`;
@@ -541,13 +577,10 @@ export function renderSettings(req, { tab = "account", keys = [], secret = "", e
   <p class="lead">${escape(tr("settings.theme.lead"))}</p>
   <p class="row">${themeBtn("light", tr("settings.theme.light"))} ${themeBtn("dark", tr("settings.theme.dark"))} ${themeBtn("system", tr("settings.theme.system"))}</p>
   </section>`;
-  const body = `${flashFrom(req.query, lang)}
-  <h1>${escape(tr("settings.h1"))}</h1>
+  const inner = `${error ? note("bad", error, lang) : ""}
   <p class="lead">${escape(tr(name === "site" ? "settings.site.lead" : "settings.account.lead"))}</p>
-  ${error ? note("bad", error, lang) : ""}
-  <nav class="row tabs" aria-label="${escape(tr("settings.tabs"))}">${tabLink("account", tr("settings.tab.account"))}${tabLink("site", tr("settings.tab.site"))}</nav>
   ${name === "site" ? sitePane : accountPane}`;
-  return page({ title: tr("settings.title"), req, body, robots: true });
+  return page({ title: tr("settings.title"), req, body: settingsFrame(req, name, inner), robots: true });
 }
 
 export function renderDashboard(req, projects) {
@@ -623,40 +656,93 @@ export function renderAdmin(req, users, audit, error = "") {
   return page({ title: tr("admin.title"), req, body, robots: true });
 }
 
-export function renderProfile(req, data) {
+function profileLinks(user) {
+  return asArray(user.links).map((link) => {
+    const url = String(link?.url || "");
+    if (!url.startsWith("https://")) return "";
+    return `<li><a href="${escape(url)}" rel="noreferrer noopener">${escape(link.label || url)}</a></li>`;
+  }).join("");
+}
+
+function statCell(href, value, label) {
+  const inner = `<b>${escape(value)}</b><span>${escape(label)}</span>`;
+  return href ? `<a class="stat" href="${escape(href)}">${inner}</a>` : `<div class="stat">${inner}</div>`;
+}
+
+function followControl(req, data, tr) {
+  const user = data.user;
+  if (data.self) return `<a class="btn" href="/account">${escape(tr("profile.edit"))}</a>`;
+  if (!req.actor) return `<a class="btn" href="/login?next=${encodeURIComponent(`/u/${user.username}`)}">${escape(tr("profile.follow"))}</a>`;
+  const label = data.following ? tr("profile.followingBtn") : tr("profile.follow");
+  return `<form method="post" action="/u/${escape(user.username)}/follow">${hidden("_csrf", req.actor.csrf)}<button type="submit" class="${data.following ? "ghost" : ""}">${escape(label)}</button></form>`;
+}
+
+export function renderProfile(req, data, error = "") {
   const { lang, tr } = use(req);
   const user = data.user;
+  const stats = data.stats || { mods: data.projects?.length || 0, downloads: 0, followers: 0, following: 0 };
   const accent = accentOf(user);
   const nameStyle = accent ? ` style="color:${accent}"` : "";
   const coverStyle = accent ? ` style="background:${accent}"` : "";
   const banner = user.banner_ext
     ? `<img src="/u/${escape(user.username)}/banner?v=${stampOf(user)}" alt="">`
     : "";
-  const links = asArray(user.links).map((link) => {
-    const url = String(link?.url || "");
-    if (!url.startsWith("https://")) return "";
-    return `<li><a href="${escape(url)}" rel="noreferrer noopener">${escape(link.label || url)}</a></li>`;
-  }).join("");
+  const links = profileLinks(user);
+  const since = formatWhen(user.created_at, lang);
   const cards = data.projects.length
-    ? data.projects.map((item) => `<a class="card" href="/mods/${escape(item.id)}">${letter(item.name)}<span><b>${escape(item.name)}</b> <i>${escape(kindLabel(item.kind, lang))}</i><em>${escape(item.summary)}</em></span></a>`).join("")
+    ? data.projects.map((item) => `<a class="card" href="/mods/${escape(item.id)}">${letter(item.name)}<span><b>${escape(item.name)}</b> <i>${escape(kindLabel(item.kind, lang))}</i><em>${escape(item.summary)}</em><small>${escape(formatCount(item.downloads, lang))} · ${escape(tr("profile.stat.downloads"))}</small></span></a>`).join("")
     : blank(tr("profile.noMods"));
   const shown = user.display_name || user.username;
-  const body = `<article class="profile">
+  const body = `${flashFrom(req.query, lang)}
+  ${error ? note("bad", error, lang) : ""}
+  <article class="profile">
     <div class="cover"${coverStyle}>${banner}</div>
     <div class="profile-head">
       ${userFace(user)}
-      <div>
+      <div class="profile-id">
         <h1${nameStyle}>${escape(shown)}</h1>
-        <p class="mono">@${escape(user.username)}</p>
+        <p class="mono">@${escape(user.username)} <span class="tag">${escape(user.role || "")}</span></p>
         ${user.tagline ? `<p>${escape(user.tagline)}</p>` : ""}
+        ${since ? `<p>${escape(tr("profile.since", { date: since }))}</p>` : ""}
       </div>
+      <div class="profile-actions">${followControl(req, data, tr)}</div>
     </div>
-    ${user.bio ? `<div class="prose">${escape(user.bio)}</div>` : ""}
-    ${links ? `<ul class="profile-links">${links}</ul>` : ""}
-    <h2>${escape(tr("profile.mods"))}</h2>
-    <div class="cards">${cards}</div>
+    <div class="statbar">
+      ${statCell("#mods", formatCount(stats.mods, lang), tr("profile.stat.mods"))}
+      ${statCell("", formatCount(stats.downloads, lang), tr("profile.stat.downloads"))}
+      ${statCell(`/u/${encodeURIComponent(user.username)}/followers`, formatCount(stats.followers, lang), tr("profile.stat.followers"))}
+      ${statCell(`/u/${encodeURIComponent(user.username)}/following`, formatCount(stats.following, lang), tr("profile.stat.following"))}
+    </div>
+    <div class="profile-layout">
+      <aside class="sheet">
+        <h2>${escape(tr("profile.about"))}</h2>
+        ${user.bio ? `<div class="prose">${escape(user.bio)}</div>` : `<p class="lead">${escape(tr("profile.noBio"))}</p>`}
+        ${links ? `<ul class="profile-links">${links}</ul>` : ""}
+      </aside>
+      <section id="mods">
+        <h2>${escape(tr("profile.mods"))}</h2>
+        <div class="cards">${cards}</div>
+      </section>
+    </div>
   </article>`;
   return page({ title: shown, description: user.tagline || user.bio || shown, req, body });
+}
+
+export function renderFollowList(req, data) {
+  const { lang, tr } = use(req);
+  const user = data.user;
+  const side = data.side === "following" ? "following" : "followers";
+  const title = tr(side === "following" ? "profile.followingTitle" : "profile.followersTitle", {
+    name: user.display_name || user.username,
+  });
+  const people = data.people.length
+    ? data.people.map((person) => `<a class="person" href="/u/${escape(person.username)}">${userFace(person, "sm")}<span><b>${escape(person.display_name || person.username)}</b><small>@${escape(person.username)}${person.tagline ? ` · ${escape(person.tagline)}` : ""}</small></span></a>`).join("")
+    : blank(tr(side === "following" ? "profile.nobodyFollowing" : "profile.nobodyFollowers"));
+  const body = `<p class="row"><a href="/u/${escape(user.username)}">${escape(tr("profile.back"))}</a></p>
+  <h1>${escape(title)}</h1>
+  <p class="lead">${escape(tr("profile.listCount", { n: formatCount(data.people.length, lang) }))}</p>
+  <section class="sheet">${people}</section>`;
+  return page({ title, req, body });
 }
 
 export function renderDocs(req) {

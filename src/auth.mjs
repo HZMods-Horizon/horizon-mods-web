@@ -180,7 +180,7 @@ export async function ownProfile(actor) {
   return result.rows[0] || null;
 }
 
-export async function publicByName(username) {
+export async function publicByName(username, actor = null) {
   const name = String(username || "").trim().toLowerCase();
   if (!/^[a-z0-9_]{3,24}$/.test(name)) return null;
   const found = await query(
@@ -190,14 +190,85 @@ export async function publicByName(username) {
   );
   const user = found.rows[0];
   if (!user) return null;
-  const projects = await query(
-    `SELECT id, kind, name, summary FROM projects
-     WHERE owner_id = $1 AND status = 'published'
-     ORDER BY published_at DESC NULLS LAST, id
-     LIMIT 48`,
-    [user.id],
+  const [projects, stats, followed] = await Promise.all([
+    query(
+      `SELECT p.id, p.kind, p.name, p.summary,
+              coalesce((SELECT sum(v.downloads) FROM versions v WHERE v.project_id = p.id AND v.status = 'published'), 0)::int AS downloads
+       FROM projects p
+       WHERE p.owner_id = $1 AND p.status = 'published'
+       ORDER BY p.published_at DESC NULLS LAST, p.id
+       LIMIT 48`,
+      [user.id],
+    ),
+    query(
+      `SELECT
+         (SELECT count(*)::int FROM projects p WHERE p.owner_id = $1 AND p.status = 'published') AS mods,
+         (SELECT coalesce(sum(v.downloads), 0)::int FROM versions v
+            JOIN projects p ON p.id = v.project_id
+            WHERE p.owner_id = $1 AND p.status = 'published' AND v.status = 'published') AS downloads,
+         (SELECT count(*)::int FROM follows f WHERE f.followee_id = $1) AS followers,
+         (SELECT count(*)::int FROM follows f WHERE f.follower_id = $1) AS following`,
+      [user.id],
+    ),
+    actor?.id && actor.id !== user.id
+      ? query("SELECT 1 FROM follows WHERE follower_id = $1 AND followee_id = $2", [actor.id, user.id])
+      : Promise.resolve({ rows: [] }),
+  ]);
+  const row = stats.rows[0] || {};
+  return {
+    user,
+    projects: projects.rows,
+    stats: {
+      mods: Number(row.mods) || 0,
+      downloads: Number(row.downloads) || 0,
+      followers: Number(row.followers) || 0,
+      following: Number(row.following) || 0,
+    },
+    following: followed.rows.length > 0,
+    self: actor?.id === user.id,
+  };
+}
+
+export async function listFollows(username, side) {
+  const found = await publicByName(username);
+  if (!found) return null;
+  const sql = side === "following"
+    ? `SELECT u.username, u.display_name, u.avatar_ext, u.profile_at, u.tagline
+       FROM follows f JOIN users u ON u.id = f.followee_id
+       WHERE f.follower_id = $1 AND u.disabled_at IS NULL
+       ORDER BY f.created_at DESC
+       LIMIT 100`
+    : `SELECT u.username, u.display_name, u.avatar_ext, u.profile_at, u.tagline
+       FROM follows f JOIN users u ON u.id = f.follower_id
+       WHERE f.followee_id = $1 AND u.disabled_at IS NULL
+       ORDER BY f.created_at DESC
+       LIMIT 100`;
+  const people = await query(sql, [found.user.id]);
+  return { ...found, people: people.rows, side: side === "following" ? "following" : "followers" };
+}
+
+export async function toggleFollow(actor, username) {
+  requireScope(actor, "mods:read");
+  const found = await publicByName(username);
+  if (!found) throw new HttpError(404, "not_found", "Профиля нет");
+  if (found.user.id === actor.id) throw new HttpError(400, "invalid", "На себя подписка не нужна");
+  const existing = await query(
+    "SELECT 1 FROM follows WHERE follower_id = $1 AND followee_id = $2",
+    [actor.id, found.user.id],
   );
-  return { user, projects: projects.rows };
+  if (existing.rows.length) {
+    await query("DELETE FROM follows WHERE follower_id = $1 AND followee_id = $2", [actor.id, found.user.id]);
+    return { following: false, username: found.user.username };
+  }
+  try {
+    await query(
+      "INSERT INTO follows (follower_id, followee_id) VALUES ($1, $2)",
+      [actor.id, found.user.id],
+    );
+  } catch (err) {
+    if (!isUnique(err)) throw err;
+  }
+  return { following: true, username: found.user.username };
 }
 
 export async function saveProfile(actor, input, media) {

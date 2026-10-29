@@ -33,7 +33,12 @@ export function openApiDocument() {
         get: { summary: "Current account and profile", security: [{ bearer: [] }, { cookie: [] }], responses: { 200: { description: "user" } } },
         patch: { summary: "Display name, text, color, and profile links", security: [{ bearer: [] }, { cookie: [] }], responses: { 200: { description: "user" } } },
       },
-      "/api/v1/users/{username}": { get: { summary: "Public profile and published mods", responses: { 200: { description: "user" }, 404: { description: "no profile" } } } },
+      "/api/v1/users/{username}": {
+        get: { summary: "Public profile, stats, and published mods", responses: { 200: { description: "user, stats, projects" }, 404: { description: "no profile" } } },
+      },
+      "/api/v1/users/{username}/follow": {
+        post: { summary: "Follow or unfollow this profile", security: [{ bearer: [] }, { cookie: [] }], responses: { 200: { description: "following flag and stats" }, 400: { description: "cannot follow yourself" } } },
+      },
       "/api/v1/keys": {
         get: { summary: "Own keys", security: [{ bearer: [] }, { cookie: [] }], responses: { 200: { description: "keys" } } },
         post: { summary: "New key, secret returned once", security: [{ bearer: [] }, { cookie: [] }], responses: { 201: { description: "secret" } } },

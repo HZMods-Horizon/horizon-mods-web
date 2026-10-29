@@ -10,6 +10,7 @@ import {
   requireScope,
   revokeKey,
   saveProfile,
+  toggleFollow,
 } from "./auth.mjs";
 import config from "./config.mjs";
 import { HttpError, zodError } from "./errors.mjs";
@@ -120,12 +121,21 @@ export async function registerApi(app) {
   });
 
   app.get("/api/v1/users/:username", async (req) => {
-    const found = await publicByName(req.params.username);
+    const found = await publicByName(req.params.username, req.actor);
     if (!found) throw new HttpError(404, "not_found", "Профиля нет");
     return {
       user: publicUser(found.user),
+      stats: found.stats,
+      following: found.following,
       projects: found.projects,
     };
+  });
+
+  app.post("/api/v1/users/:username/follow", async (req) => {
+    assertSessionCsrf(req);
+    const result = await toggleFollow(req.actor, req.params.username);
+    const found = await publicByName(req.params.username, req.actor);
+    return { following: result.following, stats: found.stats };
   });
 
   app.get("/api/v1/keys", async (req) => ({ keys: await listKeys(req.actor) }));
