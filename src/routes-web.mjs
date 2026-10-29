@@ -1,5 +1,6 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
+import { notifyMedia } from "./announce.mjs";
 import {
   changePassword,
   createKey,
@@ -47,13 +48,16 @@ import {
   sendHtml,
 } from "./html.mjs";
 import { assertCsrf, clearSessionCookie, clientIp, pageCsrf, readFormFiles, readMultipart, redirect, setSessionCookie } from "./http.mjs";
+import { addMedia, deleteMedia, mediaType, openMedia } from "./media.mjs";
 import { applyImages, imageType, profileFile } from "./profile.mjs";
 import { applyLimitHeaders, consume } from "./rate.mjs";
 import {
   bumpDownload,
+  createProject,
   decideReview,
   findUpdates,
   getVersion,
+  invalidateIndex,
   listMine,
   listPublic,
   lookupDownload,
@@ -64,7 +68,6 @@ import {
   updateProject,
   uploadVersion,
   viewProject,
-  createProject,
 } from "./registry.mjs";
 import { assertTurnstile } from "./turnstile.mjs";
 import { accountSchema, finishProfile, parseAuthors, safeNext } from "./validate.mjs";
@@ -159,10 +162,84 @@ export async function registerWeb(app) {
     return sendHtml(reply, renderMods(req, data));
   });
 
+  app.get("/mods/:id/media/:mediaId", async (req, reply) => {
+    const opened = await openMedia(req.params.id, req.params.mediaId, req.actor);
+    if (!opened) throw new HttpError(404, "not_found", "Такого файла нет");
+    let info;
+    try {
+      info = await stat(opened.path);
+    } catch {
+      throw new HttpError(404, "not_found", "Такого файла нет");
+    }
+    const type = mediaType(opened.ext);
+    reply.header("x-content-type-options", "nosniff");
+    reply.header("content-disposition", "inline");
+    reply.header("accept-ranges", "bytes");
+    reply.header("cache-control", "public, max-age=3600");
+    const range = String(req.headers.range || "");
+    if (range) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+      if (!match) {
+        reply.header("content-range", `bytes */${info.size}`);
+        return reply.code(416).send();
+      }
+      const start = match[1] ? Number(match[1]) : 0;
+      let end = match[2] ? Number(match[2]) : info.size - 1;
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start > end || start >= info.size) {
+        reply.header("content-range", `bytes */${info.size}`);
+        return reply.code(416).send();
+      }
+      end = Math.min(end, info.size - 1);
+      reply.header("content-range", `bytes ${start}-${end}/${info.size}`);
+      reply.header("content-length", String(end - start + 1));
+      return reply.code(206).type(type).send(createReadStream(opened.path, { start, end }));
+    }
+    reply.header("content-length", String(info.size));
+    return reply.type(type).send(createReadStream(opened.path));
+  });
+
+  app.post("/mods/:id/media", { bodyLimit: 10 * 1024 * 1024 }, async (req, reply) => {
+    if (!gate(req, reply)) return;
+    const view = await viewProject(req.params.id, req.actor);
+    if (!view?.owner) return show(reply, renderError(req, 404, "Страница не ваша"), 404);
+    try {
+      const { fields, files } = await readFormFiles(req, ["file"]);
+      assertCsrf(req, fields);
+      await addMedia(req.actor, req.params.id, files.file, fields);
+      invalidateIndex();
+      await notifyMedia(req.params.id);
+      return redirect(reply, `/mods/${req.params.id}?ok=media`);
+    } catch (err) {
+      const http = formError(err);
+      if (!http || http.status >= 500) throw err;
+      const again = await viewProject(req.params.id, req.actor);
+      if (!again) throw err;
+      return show(reply, renderProject(req, again, pageCsrf(req, reply), [{ message: http.message }]), http.status);
+    }
+  });
+
+  app.post("/mods/:id/media/:mediaId/delete", async (req, reply) => {
+    if (!gate(req, reply)) return;
+    try {
+      assertCsrf(req, req.body || {});
+      await deleteMedia(req.actor, req.params.id, req.params.mediaId);
+      invalidateIndex();
+      await notifyMedia(req.params.id);
+      return redirect(reply, `/mods/${req.params.id}?ok=unmedia`);
+    } catch (err) {
+      const http = formError(err);
+      if (!http || http.status >= 500) throw err;
+      const again = await viewProject(req.params.id, req.actor);
+      if (!again?.owner) return show(reply, renderError(req, http.status, http.message), http.status);
+      return show(reply, renderProject(req, again, pageCsrf(req, reply), [{ message: http.message }]), http.status);
+    }
+  });
+
   app.get("/mods/:id", async (req, reply) => {
     const view = await viewProject(req.params.id, req.actor);
     if (!view) return sendHtml(reply, renderError(req, 404, "Такого мода нет среди опубликованных"), { status: 404 });
-    return sendHtml(reply, renderProject(req, view), { robots: view.project.status !== "published" });
+    const csrf = view.owner ? pageCsrf(req, reply) : "";
+    return sendHtml(reply, renderProject(req, view, csrf), { robots: view.project.status !== "published" });
   });
 
   app.get("/submit", async (req, reply) => {

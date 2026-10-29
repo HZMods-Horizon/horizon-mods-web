@@ -55,6 +55,14 @@ export function openApiDocument() {
       "/api/v1/mods/{id}/versions": {
         post: { summary: "Upload an archive", security: [{ bearer: [] }, { cookie: [] }], responses: { 201: { description: "accepted" }, 422: { description: "checks failed" } } },
       },
+      "/api/v1/feed": { get: { summary: "Recent published versions, with screenshot and short video paths", responses: { 200: { description: "versions" } } } },
+      "/api/v1/mods/{id}/media": {
+        post: { summary: "Upload one screenshot or one short video", security: [{ bearer: [] }, { cookie: [] }], responses: { 201: { description: "stored" }, 400: { description: "not a picture or short video" } } },
+      },
+      "/api/v1/mods/{id}/media/{mediaId}": {
+        delete: { summary: "Remove a screenshot or short video", security: [{ bearer: [] }, { cookie: [] }], responses: { 204: { description: "removed" } } },
+      },
+      "/mods/{id}/media/{mediaId}": { get: { summary: "Screenshot or short video of a visible mod", responses: { 200: { description: "bytes" }, 404: { description: "hidden or missing" } } } },
       "/api/v1/versions/{id}/review": { post: { summary: "approve or reject", security: [{ bearer: [] }, { cookie: [] }], responses: { 200: { description: "decision" } } } },
       "/api/v1/revocations": { post: { summary: "Revoke a project or sha256", security: [{ bearer: [] }, { cookie: [] }], responses: { 200: { description: "revoked" } } } },
       "/download/{project}/{version}/{file}": { get: { summary: "File of a published version", responses: { 200: { description: "bytes" }, 304: { description: "not modified" }, 410: { description: "revoked" } } } },

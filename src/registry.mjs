@@ -8,7 +8,9 @@ import { query, transaction } from "./db.mjs";
 import { HttpError, isUnique, zodError } from "./errors.mjs";
 import { removeBlobIfUnused, saveBlob } from "./files.mjs";
 import { inspectArchive } from "./inspect.mjs";
+import { notifyPublished } from "./announce.mjs";
 import { audit, hasScope, requireScope } from "./auth.mjs";
+import { listMedia, listMediaMany } from "./media.mjs";
 import { asArray, iso, newId, sha256hex } from "./secret.mjs";
 import { bestVersion, cmpSemver } from "./semver.mjs";
 import { finishProject, projectSchema, versionSchema } from "./validate.mjs";
@@ -72,6 +74,19 @@ export async function buildIndex() {
      ORDER BY v.published_at`,
   );
   const revoked = await query("SELECT project_id, sha256, reason, created_at FROM revocations ORDER BY created_at");
+  const shots = await query(
+    `SELECT m.project_id, m.id, m.kind, m.caption
+     FROM project_media m
+     JOIN projects p ON p.id = m.project_id
+     WHERE p.status = 'published'
+     ORDER BY m.sort, m.created_at`,
+  );
+  const shotsByProject = new Map();
+  for (const row of shots.rows) {
+    const list = shotsByProject.get(row.project_id) || [];
+    list.push(row);
+    shotsByProject.set(row.project_id, list);
+  }
   const byProject = new Map();
   for (const row of versions.rows) {
     const list = byProject.get(row.project_id) || [];
@@ -94,6 +109,11 @@ export async function buildIndex() {
         license: project.license,
         source: project.source_url,
         downloads: vers.reduce((sum, item) => sum + Number(item.downloads || 0), 0),
+        media: (shotsByProject.get(project.id) || []).map((item) => omitEmpty({
+          kind: item.kind,
+          url: `${config.publicUrl}/mods/${project.id}/media/${item.id}`,
+          caption: item.caption || "",
+        })),
         versions: vers.map((item) => omitEmpty({
           version: item.version,
           published: iso(item.published_at),
@@ -368,6 +388,7 @@ export async function uploadVersion(actor, projectId, fields, file, idemKey) {
   if (prev && prev.storage_name !== sha) await removeBlobIfUnused(prev.storage_name);
   invalidateIndex();
   await audit(actor.id, "version.upload", versionId, { status, sha256: sha });
+  if (status === "published") await notifyPublished(project.id, versionId);
   return { status: httpStatus, body };
 }
 
@@ -539,6 +560,7 @@ export async function decideReview(actor, versionId, { action, note, acceptStati
   }
   invalidateIndex();
   await audit(actor.id, action === "approve" ? "review.approve" : "review.reject", versionId, {});
+  if (action === "approve") await notifyPublished(row.project_id, versionId);
 }
 
 export async function revoke(actor, { projectId, sha256, reason }) {
@@ -604,7 +626,8 @@ export async function listPublic({ q, kind, page }) {
   const rows = await query(
     `SELECT p.id, p.kind, p.name, p.summary, p.license, p.game, p.published_at,
             u.username, u.display_name, u.avatar_ext, u.profile_at,
-            (SELECT COALESCE(SUM(v.downloads), 0) FROM versions v WHERE v.project_id = p.id AND v.status = 'published') AS downloads
+            (SELECT COALESCE(SUM(v.downloads), 0) FROM versions v WHERE v.project_id = p.id AND v.status = 'published') AS downloads,
+            (SELECT m.id FROM project_media m WHERE m.project_id = p.id AND m.kind = 'image' ORDER BY m.sort, m.created_at LIMIT 1) AS cover_id
      FROM projects p JOIN users u ON u.id = p.owner_id
      WHERE ${where.join(" AND ")}
      ORDER BY p.published_at DESC NULLS LAST, p.id
@@ -618,7 +641,8 @@ export async function listPublic({ q, kind, page }) {
 export async function recentVersions(limit = 8) {
   const result = await query(
     `SELECT v.version, v.published_at, v.channel, p.id, p.name, p.kind, p.summary,
-            u.username, u.display_name, u.avatar_ext, u.profile_at
+            u.username, u.display_name, u.avatar_ext, u.profile_at,
+            (SELECT m.id FROM project_media m WHERE m.project_id = p.id AND m.kind = 'image' ORDER BY m.sort, m.created_at LIMIT 1) AS cover_id
      FROM versions v
      JOIN projects p ON p.id = v.project_id
      JOIN users u ON u.id = p.owner_id
@@ -627,6 +651,40 @@ export async function recentVersions(limit = 8) {
     [limit],
   );
   return result.rows;
+}
+
+export async function publishedFeed(limit = 30) {
+  const size = Math.min(40, Math.max(1, Math.floor(Number(limit) || 30)));
+  const result = await query(
+    `SELECT v.id AS version_id, v.version, v.channel, v.changelog, v.published_at,
+            p.id, p.kind, p.name, p.summary, p.game, p.license,
+            u.username, u.display_name
+     FROM versions v
+     JOIN projects p ON p.id = v.project_id
+     JOIN users u ON u.id = p.owner_id
+     WHERE v.status = 'published' AND p.status = 'published'
+     ORDER BY v.published_at DESC
+     LIMIT $1`,
+    [size],
+  );
+  const media = await listMediaMany(result.rows.map((row) => row.id));
+  return result.rows.map((row) => ({
+    versionId: row.version_id,
+    version: row.version,
+    channel: row.channel,
+    changelog: row.changelog || "",
+    publishedAt: iso(row.published_at),
+    id: row.id,
+    kind: row.kind,
+    name: row.name,
+    summary: row.summary,
+    game: row.game,
+    license: row.license,
+    owner: row.username,
+    ownerName: row.display_name || row.username,
+    page: `/mods/${row.id}`,
+    media: media.get(row.id) || [],
+  }));
 }
 
 export async function viewProject(id, actor) {
@@ -668,6 +726,7 @@ export async function viewProject(id, actor) {
   return {
     project: { ...project, authors: asArray(project.authors) },
     versions: visible,
+    media: await listMedia(id),
     owner,
     reviewer,
   };

@@ -35,6 +35,10 @@ An API key is created in the account. The secret is shown once and stored only a
 
 Limits live in `.env` and in `GET /api/v1/limits`. Over the limit the response is 429 with `Retry-After`. Route descriptions are at `/docs/api` and `/api/v1/openapi.json`. Examples: `examples/check-updates.mjs`, `examples/publish.mjs`.
 
+An owner can put up to six screenshots and one short video on a mod page. Pictures are PNG, JPEG, GIF, or WebP, 4 MB each. The clip is MP4 or WebM, 8 MB. Visitors see the files after the mod is published. `GET /api/v1/mods/:id` lists them, and `GET /api/v1/feed` lists recent published versions.
+
+A Discord bot can sit beside this repo. It is a separate program. Leave `BOT_NOTIFY_URL` and `BOT_NOTIFY_SECRET` empty and the bot can poll `/api/v1/feed`. Set both when you want the site to ping the bot at the moment a version is published. Publishing still succeeds if that ping fails.
+
 ## Postgres and a proxy
 
 `docker compose up` starts Postgres 16, the app, and Caddy. Only Caddy is published, on host port 8090. `TRUST_PROXY=true` trusts the private network, not an arbitrary `X-Forwarded-For`. Without Docker keep `DATABASE_URL=pglite:./data/pg` and `TRUST_PROXY=false`.

@@ -13,8 +13,10 @@ import {
   toggleFollow,
 } from "./auth.mjs";
 import config from "./config.mjs";
+import { notifyMedia } from "./announce.mjs";
 import { HttpError, zodError } from "./errors.mjs";
-import { assertCsrf, clearSessionCookie, clientIp, readMultipart, setSessionCookie } from "./http.mjs";
+import { assertCsrf, clearSessionCookie, clientIp, readFormFiles, readMultipart, setSessionCookie } from "./http.mjs";
+import { addMedia, deleteMedia } from "./media.mjs";
 import { openApiDocument } from "./openapi.mjs";
 import { applyLimitHeaders, consume } from "./rate.mjs";
 import {
@@ -22,9 +24,11 @@ import {
   createProject,
   decideReview,
   findUpdates,
+  invalidateIndex,
   listPublic,
   normalizeChannelGame,
   parseInstalled,
+  publishedFeed,
   revoke,
   updateProject,
   uploadVersion,
@@ -65,6 +69,7 @@ function projectJson(view) {
     game: project.game,
     status: project.status,
     owner: project.username,
+    media: view.media || [],
     versions: view.versions,
   };
 }
@@ -170,8 +175,28 @@ export async function registerApi(app) {
         ownerName: row.display_name || row.username,
         avatar: row.avatar_ext ? `/u/${row.username}/avatar?v=${row.profile_at ? new Date(row.profile_at).getTime() : 0}` : null,
         downloads: Number(row.downloads) || 0,
+        cover: row.cover_id ? `/mods/${row.id}/media/${row.cover_id}` : null,
       })),
     };
+  });
+
+  app.get("/api/v1/feed", async (req) => ({ versions: await publishedFeed(req.query.limit) }));
+
+  app.post("/api/v1/mods/:id/media", { bodyLimit: 10 * 1024 * 1024 }, async (req, reply) => {
+    const { fields, files } = await readFormFiles(req, ["file"]);
+    assertCsrf(req, fields);
+    const created = await addMedia(req.actor, req.params.id, files.file, fields);
+    invalidateIndex();
+    await notifyMedia(req.params.id);
+    return reply.code(201).send(created);
+  });
+
+  app.delete("/api/v1/mods/:id/media/:mediaId", async (req, reply) => {
+    assertCsrf(req, req.body || {});
+    await deleteMedia(req.actor, req.params.id, req.params.mediaId);
+    invalidateIndex();
+    await notifyMedia(req.params.id);
+    return reply.code(204).send();
   });
 
   app.post("/api/v1/mods", async (req, reply) => {

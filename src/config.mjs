@@ -31,6 +31,27 @@ function flag(name, fallback) {
   throw new Error(`${name} must be true or false`);
 }
 
+function optional(name) {
+  const value = process.env[name];
+  if (value === undefined || value.trim() === "") return "";
+  return value.trim();
+}
+
+function optionalUrl(name) {
+  const value = optional(name);
+  if (!value) return "";
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${name} must be an absolute URL`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`${name} must start with http:// or https://`);
+  }
+  return value.replace(/\/+$/, "");
+}
+
 function resolveDir(value) {
   return path.isAbsolute(value) ? value : path.resolve(root, value);
 }
@@ -110,6 +131,8 @@ const config = {
   checkRequired: flag("HORIZON_MOD_CHECK_REQUIRED", false),
   checkTimeoutMs: integer("HORIZON_MOD_CHECK_TIMEOUT_MS", 30000, 1000, 120000),
   trustedOwnerUpdates: flag("TRUSTED_OWNER_UPDATES", false),
+  botNotifyUrl: optionalUrl("BOT_NOTIFY_URL"),
+  botNotifySecret: optional("BOT_NOTIFY_SECRET"),
   userQuotaBytes: integer("USER_QUOTA_BYTES", 512 * 1024 * 1024, 1024 * 1024, 8 * 1024 * 1024 * 1024),
   rate: {
     ipPerMin: integer("RATE_IP_PER_MIN", 300, 10, 100000),

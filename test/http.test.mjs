@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -21,6 +22,20 @@ process.env.TRUSTED_OWNER_UPDATES = "false";
 process.env.GAME_VERSIONS = "26.3";
 process.env.TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
 process.env.TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA";
+
+const hits = [];
+const notify = createServer((req, res) => {
+  const chunks = [];
+  req.on("data", (chunk) => chunks.push(chunk));
+  req.on("end", () => {
+    hits.push({ auth: req.headers.authorization || "", body: Buffer.concat(chunks).toString("utf8") });
+    res.writeHead(204);
+    res.end();
+  });
+});
+await new Promise((resolve) => notify.listen(0, "127.0.0.1", resolve));
+process.env.BOT_NOTIFY_URL = `http://127.0.0.1:${notify.address().port}/notify`;
+process.env.BOT_NOTIFY_SECRET = "notify-test-secret";
 
 const { buildApp } = await import("../src/server.mjs");
 const { closeDb } = await import("../src/db.mjs");
@@ -245,6 +260,41 @@ test("реестр: аккаунт, проверка, индекс, обновл
     });
     assert.equal(created.statusCode, 201, created.body);
 
+    const shotPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+    const shot = multipart({ caption: "главный кадр" }, { name: "shot.png", bytes: shotPng });
+    const added = await app.inject({
+      method: "POST",
+      url: "/api/v1/mods/demo_mod/media",
+      headers: { ...shot.headers, authorization: `Bearer ${secret}` },
+      payload: shot.payload,
+    });
+    assert.equal(added.statusCode, 201, added.body);
+    assert.equal(added.json().kind, "image");
+    const mediaUrl = added.json().url;
+    assert.equal((await app.inject({ method: "GET", url: mediaUrl })).statusCode, 404);
+    const ownerShot = await app.inject({ method: "GET", url: mediaUrl, headers: { authorization: `Bearer ${secret}` } });
+    assert.equal(ownerShot.statusCode, 200, ownerShot.body);
+    assert.equal(ownerShot.rawPayload[0], 0x89);
+    assert.equal(ownerShot.headers["x-content-type-options"], "nosniff");
+    const junk = multipart({ kind: "image" }, { name: "bad.html", bytes: Buffer.from("<html>not-an-image!!</html>") });
+    const junked = await app.inject({
+      method: "POST",
+      url: "/api/v1/mods/demo_mod/media",
+      headers: { ...junk.headers, authorization: `Bearer ${secret}` },
+      payload: junk.payload,
+    });
+    assert.equal(junked.statusCode, 400, junked.body);
+    const ownerPage = await app.inject({
+      method: "GET",
+      url: "/mods/demo_mod",
+      headers: { cookie, accept: "text/html" },
+    });
+    assert.equal(ownerPage.statusCode, 200, ownerPage.body);
+    assert.match(ownerPage.body, /class="gallery"/);
+    assert.match(ownerPage.body, /Скриншоты и видео/);
+    assert.match(ownerPage.body, /name="kind" value="video"/);
+    assert.match(ownerPage.body, /site\.css\?v=13/);
+
     const file = multipart({ version: "1.0.0", changelog: "первый", channel: "release" }, { name: "demo.hmod", bytes: hmod() });
     const uploaded = await app.inject({
       method: "POST",
@@ -308,7 +358,60 @@ test("реестр: аккаунт, проверка, индекс, обновл
     const index = await app.inject({ method: "GET", url: "/api/v1/index.json" });
     const doc = index.json();
     assert.equal(doc.projects[0].id, "demo_mod");
+    assert.equal(doc.projects[0].media.length, 1);
+    assert.match(doc.projects[0].media[0].url, /^http:\/\/127\.0\.0\.1:8090\/mods\/demo_mod\/media\//);
     assert.equal(JSON.stringify(doc).includes("api_level"), false);
+    const publicShot = await app.inject({ method: "GET", url: mediaUrl });
+    assert.equal(publicShot.statusCode, 200, publicShot.body);
+    assert.match(String(publicShot.headers["content-type"] || ""), /^image\/png/);
+    const ranged = await app.inject({ method: "GET", url: mediaUrl, headers: { range: "bytes=0-2" } });
+    assert.equal(ranged.statusCode, 206, ranged.body);
+    assert.equal(ranged.rawPayload.length, 3);
+    const publicPage = await app.inject({ method: "GET", url: "/mods/demo_mod", headers: { accept: "text/html" } });
+    assert.match(publicPage.body, /class="gallery"/);
+    assert.match(publicPage.body, /главный кадр/);
+    const detail = await app.inject({ method: "GET", url: "/api/v1/mods/demo_mod" });
+    assert.equal(detail.json().media[0].caption, "главный кадр");
+    const catalog = await app.inject({ method: "GET", url: "/api/v1/mods" });
+    assert.equal(catalog.json().projects[0].cover, mediaUrl);
+    const feed = await app.inject({ method: "GET", url: "/api/v1/feed" });
+    assert.equal(feed.json().versions[0].versionId, versionId);
+    assert.equal(feed.json().versions[0].media[0].url, mediaUrl);
+    const mp4 = Buffer.concat([Buffer.alloc(4), Buffer.from("ftypisom")]);
+    const clip = multipart({ kind: "video", caption: "ролик" }, { name: "clip.mp4", bytes: mp4 });
+    const clipped = await app.inject({
+      method: "POST",
+      url: "/api/v1/mods/demo_mod/media",
+      headers: { ...clip.headers, authorization: `Bearer ${secret}` },
+      payload: clip.payload,
+    });
+    assert.equal(clipped.statusCode, 201, clipped.body);
+    assert.equal(clipped.json().kind, "video");
+    const clipPage = await app.inject({ method: "GET", url: "/mods/demo_mod", headers: { accept: "text/html" } });
+    assert.match(clipPage.body, /<video /);
+    const againClip = await app.inject({
+      method: "POST",
+      url: "/api/v1/mods/demo_mod/media",
+      headers: { ...clip.headers, authorization: `Bearer ${secret}` },
+      payload: clip.payload,
+    });
+    assert.equal(againClip.statusCode, 409, againClip.body);
+    const removed = await app.inject({
+      method: "DELETE",
+      url: `/api/v1/mods/demo_mod/media/${clipped.json().id}`,
+      headers: { authorization: `Bearer ${secret}` },
+    });
+    assert.equal(removed.statusCode, 204, removed.body);
+    for (let i = 0; i < 30 && !hits.some((hit) => hit.body.includes('"published"')); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    const publishedHit = hits.find((hit) => hit.body.includes('"event":"published"'));
+    assert.ok(publishedHit, JSON.stringify(hits.map((hit) => hit.body.slice(0, 80))));
+    assert.equal(publishedHit.auth, "Bearer notify-test-secret");
+    const notice = JSON.parse(publishedHit.body);
+    assert.equal(notice.versionId, versionId);
+    assert.equal(notice.page, "/mods/demo_mod");
+    assert.equal(JSON.stringify(notice).includes("discord.com"), false);
     const updates = await app.inject({ method: "GET", url: "/api/v1/updates?installed=demo_mod@0.1.0&game=26.3&channel=release" });
     assert.equal(updates.statusCode, 200);
     assert.equal(updates.json().updates[0].update, true);
@@ -349,6 +452,7 @@ test("реестр: аккаунт, проверка, индекс, обновл
   } finally {
     if (app) await app.close();
     await closeDb();
+    await new Promise((resolve) => notify.close(resolve));
     await rm(dir, { recursive: true, force: true });
   }
 });

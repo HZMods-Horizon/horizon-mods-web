@@ -81,6 +81,9 @@ export function routeBuckets(req) {
   } else if (method === "GET" && /^\/u\/[^/]+\/(avatar|banner)$/.test(path)) {
     if (actor) buckets.push({ name: "download-user", id: actor.id, limit: rate.downloadUserPerMin, windowSec: 60 });
     else buckets.push({ name: "download-ip", id: ip, limit: rate.downloadAnonPerMin, windowSec: 60 });
+  } else if (method === "GET" && /^\/mods\/[^/]+\/media\/[^/]+$/.test(path)) {
+    if (actor) buckets.push({ name: "download-user", id: actor.id, limit: rate.downloadUserPerMin, windowSec: 60 });
+    else buckets.push({ name: "download-ip", id: ip, limit: rate.downloadAnonPerMin, windowSec: 60 });
   } else if (path.startsWith("/download/")) {
     if (actor) buckets.push({ name: "download-user", id: actor.id, limit: rate.downloadUserPerMin, windowSec: 60 });
     else buckets.push({ name: "download-ip", id: ip, limit: rate.downloadAnonPerMin, windowSec: 60 });

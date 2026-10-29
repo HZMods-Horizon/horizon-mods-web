@@ -121,7 +121,7 @@ export function page({ title, description, req, body, robots = false, turnstile 
 ${robots ? `<meta name="robots" content="noindex">` : ""}
 <link rel="icon" href="/favicon.svg">
 <script src="/theme.js?v=5"></script>
-<link rel="stylesheet" href="/site.css?v=12">
+<link rel="stylesheet" href="/site.css?v=13">
 </head>
 <body data-peek-show="${escape(tr("peek.show"))}" data-peek-hide="${escape(tr("peek.hide"))}" data-copied="${escape(tr("copied"))}" data-file-none="${escape(tr("file.none"))}">
 <a class="skip" href="#main">${escape(tr("skip"))}</a>
@@ -294,7 +294,7 @@ function kindOptions(lang, blank = false) {
 export function renderHome(req, recent) {
   const { lang, tr } = use(req);
   const cards = recent.length
-    ? recent.map((item) => `<a class="card" href="/mods/${escape(item.id)}">${letter(item.name)}<span><b>${escape(item.name)}</b> <small>${escape(item.version)}</small><i>${escape(kindLabel(item.kind, lang))}</i><em>${escape(item.summary)}</em>${item.username ? `<small class="by">${authorMark(item)}${escape(item.display_name || item.username)}</small>` : ""}</span></a>`).join("")
+    ? recent.map((item) => `<a class="card" href="/mods/${escape(item.id)}">${cardMark(item)}<span><b>${escape(item.name)}</b> <small>${escape(item.version)}</small><i>${escape(kindLabel(item.kind, lang))}</i><em>${escape(item.summary)}</em>${item.username ? `<small class="by">${authorMark(item)}${escape(item.display_name || item.username)}</small>` : ""}</span></a>`).join("")
     : blank(tr("home.empty"));
   const body = `${flashFrom(req.query, lang)}
   <section class="hero">
@@ -337,7 +337,7 @@ export function renderHome(req, recent) {
 export function renderMods(req, data) {
   const { lang, tr } = use(req);
   const cards = data.rows.length
-    ? data.rows.map((item) => `<a class="card" href="/mods/${escape(item.id)}">${letter(item.name)}<span><b>${escape(item.name)}</b> <i>${escape(kindLabel(item.kind, lang))}</i><em>${escape(item.summary)}</em><small class="by">${authorMark(item)}${escape(tr("mods.by", { user: item.display_name || item.username, count: Number(item.downloads) || 0 }))}</small></span></a>`).join("")
+    ? data.rows.map((item) => `<a class="card" href="/mods/${escape(item.id)}">${cardMark(item)}<span><b>${escape(item.name)}</b> <i>${escape(kindLabel(item.kind, lang))}</i><em>${escape(item.summary)}</em><small class="by">${authorMark(item)}${escape(tr("mods.by", { user: item.display_name || item.username, count: Number(item.downloads) || 0 }))}</small></span></a>`).join("")
     : blank(tr("mods.empty"));
   const body = `${flashFrom(req.query, lang)}
   <h1>${escape(tr("mods.title"))}</h1>
@@ -371,7 +371,55 @@ function versionBlock(projectId, item, showCheck, lang, tr) {
   </article>`;
 }
 
-export function renderProject(req, view) {
+function cardMark(item) {
+  if (item?.cover_id && item.id) {
+    return `<img class="avatar" src="/mods/${escape(item.id)}/media/${escape(item.cover_id)}" alt="">`;
+  }
+  return letter(item.name);
+}
+
+function gallerySection(project, media, owner, csrf, lang, tr, errs) {
+  const items = media || [];
+  if (!items.length && !owner) return "";
+  const cards = items.map((item) => {
+    const visual = item.kind === "video"
+      ? `<video controls preload="metadata" src="${escape(item.url)}"></video>`
+      : `<img src="${escape(item.url)}" alt="${escape(item.caption || project.name)}">`;
+    const cap = item.caption ? `<figcaption>${escape(item.caption)}</figcaption>` : "";
+    const remove = owner
+      ? `<form method="post" action="${escape(item.url)}/delete">${hidden("_csrf", csrf)}<button class="ghost" type="submit">${escape(tr("project.removeMedia"))}</button></form>`
+      : "";
+    return `<figure class="shot-card">${visual}${cap}${remove}</figure>`;
+  }).join("");
+  const grid = items.length ? `<div class="gallery">${cards}</div>` : `<p>${escape(tr("project.noGallery"))}</p>`;
+  const forms = owner ? `<div class="gallery-forms">
+    <form class="sheet stack" method="post" action="/mods/${escape(project.id)}/media" enctype="multipart/form-data">
+      ${hidden("_csrf", csrf)}
+      ${hidden("kind", "image")}
+      <h3>${escape(tr("project.shot"))}</h3>
+      ${fileField(tr, tr("project.shotFile"), "file", { required: true, accept: "image/png,image/jpeg,image/gif,image/webp" })}
+      ${field(tr("project.caption"), "caption", "", { max: 160 })}
+      <button type="submit">${escape(tr("project.addShot"))}</button>
+    </form>
+    <form class="sheet stack" method="post" action="/mods/${escape(project.id)}/media" enctype="multipart/form-data">
+      ${hidden("_csrf", csrf)}
+      ${hidden("kind", "video")}
+      <h3>${escape(tr("project.clip"))}</h3>
+      ${fileField(tr, tr("project.clipFile"), "file", { required: true, accept: "video/mp4,video/webm" })}
+      ${field(tr("project.caption"), "caption", "", { max: 160 })}
+      <button type="submit">${escape(tr("project.addClip"))}</button>
+    </form>
+  </div>` : "";
+  return `<section class="gallery-block">
+    <h2>${escape(tr("project.gallery"))}</h2>
+    <p>${escape(tr("project.galleryLead"))}</p>
+    ${errors(errs, lang)}
+    ${grid}
+    ${forms}
+  </section>`;
+}
+
+export function renderProject(req, view, csrf = "", errs = []) {
   const { lang, tr } = use(req);
   const project = view.project;
   const ownerBits = view.owner
@@ -382,6 +430,7 @@ export function renderProject(req, view) {
   <h1>${letter(project.name)} ${escape(project.name)}</h1>
   <p class="lead">${escape(project.summary)}</p>
   <p class="row">${userLink(project)} <span>· ${escape(project.license)} · <a href="${escape(project.source_url)}">${escape(tr("project.source"))}</a></span></p>
+  ${gallerySection(project, view.media, view.owner, csrf, lang, tr, errs)}
   ${project.description ? `<div class="sheet prose">${escape(project.description)}</div>` : ""}
   ${ownerBits}
   <h2>${escape(tr("project.versions"))}</h2>
@@ -802,6 +851,8 @@ export function renderApiDocs(req) {
     <h2>${escape(tr("api.write"))}</h2>
     <p class="code"><span class="mono">POST /api/v1/mods</span></p>
     <p class="code"><span class="mono">POST /api/v1/mods/:id/versions</span></p>
+    <p class="code"><span class="mono">POST /api/v1/mods/:id/media</span></p>
+    <p class="code"><span class="mono">GET /api/v1/feed</span></p>
     <p>${escape(tr("api.writeBody"))}</p>
   </section>
   <section class="sheet">
