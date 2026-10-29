@@ -132,7 +132,7 @@ ${nav(req)}
 <footer>
   <div class="wrap">
     <p>${escape(tr("foot.blurb"))} <a href="https://playhorizon.dev">playhorizon.dev</a>, <a href="https://github.com/horizon-rust/horizon">horizon</a>, <a href="https://github.com/horizon-rust/horizon-mods">horizon-mods</a>, <a href="https://github.com/horizon-rust/horizon-site">horizon-site</a>.</p>
-    <p class="foot-links"><a href="/docs">${escape(tr("foot.docs"))}</a> <a href="/privacy">${escape(tr("foot.privacy"))}</a> <a href="/docs/api">API</a> <a href="https://hzmods.lol">hzmods.lol</a> <a href="https://discord.gg/jRaVR4xdmb" rel="noreferrer noopener">${escape(tr("foot.discord"))}</a> <a class="btn ghost" href="https://github.com/quomy-code/horizon-mods-web" rel="noreferrer noopener">${escape(tr("foot.source"))}</a> <button type="button" class="ghost" data-theme-toggle>${escape(tr("theme"))}</button></p>
+    <p class="foot-links"><a href="/docs">${escape(tr("foot.docs"))}</a> <a href="/privacy">${escape(tr("foot.privacy"))}</a> <a href="/docs/api">API</a> <a href="https://hzmods.lol">hzmods.lol</a> <a href="https://discord.gg/jRaVR4xdmb" rel="noreferrer noopener">${escape(tr("foot.discord"))}</a> <a class="btn ghost" href="https://github.com/HZMods-Horizon/horizon-mods-web" rel="noreferrer noopener">${escape(tr("foot.source"))}</a> <button type="button" class="ghost" data-theme-toggle>${escape(tr("theme"))}</button></p>
   </div>
   <p class="foot-word" aria-hidden="true">HZMODS</p>
 </footer>
