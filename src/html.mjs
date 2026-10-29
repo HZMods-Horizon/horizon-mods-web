@@ -95,13 +95,15 @@ function nav(req) {
   const items = links.join("");
   const tools = `${langSwitch(req, lang)}<div class="who-row">${session}</div>`;
   return `<header class="top">
-    <a class="mark" href="/"><span class="pixel">horizon</span><span class="sub">mods</span></a>
+    <div class="top-row">
+      <a class="mark" href="/"><span class="pixel">horizon</span><span class="sub">mods</span></a>
+      <div class="tools">${tools}</div>
+      <details class="mob">
+        <summary>${escape(tr("nav.menu"))}</summary>
+        <div class="nav-panel">${items}${tools}</div>
+      </details>
+    </div>
     <nav class="desk">${items}</nav>
-    <div class="tools">${tools}</div>
-    <details class="mob">
-      <summary>${escape(tr("nav.menu"))}</summary>
-      <div class="nav-panel">${items}${tools}</div>
-    </details>
   </header>`;
 }
 
@@ -119,7 +121,7 @@ export function page({ title, description, req, body, robots = false, turnstile 
 ${robots ? `<meta name="robots" content="noindex">` : ""}
 <link rel="icon" href="/favicon.svg">
 <script src="/theme.js?v=5"></script>
-<link rel="stylesheet" href="/site.css?v=7">
+<link rel="stylesheet" href="/site.css?v=8">
 </head>
 <body data-peek-show="${escape(tr("peek.show"))}" data-peek-hide="${escape(tr("peek.hide"))}" data-copied="${escape(tr("copied"))}" data-file-none="${escape(tr("file.none"))}">
 <a class="skip" href="#main">${escape(tr("skip"))}</a>

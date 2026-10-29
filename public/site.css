@@ -272,14 +272,22 @@ p { margin: 0 0 var(--space-4); }
   top: 12px;
   z-index: 4;
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   margin: var(--space-4) 0 var(--space-6);
-  padding: 10px 12px 14px 16px;
+  padding: 10px 12px 12px 16px;
   background: var(--surface);
   border: var(--block-outline) solid var(--outline);
   border-radius: var(--radius-plate);
   box-shadow: inset 0 var(--block-bevel) 0 var(--bevel), inset 0 calc(var(--block-lip) * -1) 0 var(--lip);
+  min-width: 0;
+}
+.top-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 .mark {
   display: inline-flex;
@@ -305,14 +313,37 @@ p { margin: 0 0 var(--space-4); }
   text-transform: uppercase;
   color: var(--muted);
 }
-.desk, .tools, .who-row, .nav-panel, .row, .pager, .foot-links {
+.row, .pager, .foot-links {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
 }
-.desk { flex: 1; }
+.desk {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px 8px;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+}
+.desk::-webkit-scrollbar { display: none; height: 0; }
+.desk > .nav-link,
+.desk > .btn { flex: none; white-space: nowrap; }
+.tools, .who-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
 .tools { margin-left: auto; }
+.who-row { flex: none; }
+.who-row form { flex: none; }
 .nav-link {
   color: var(--ink);
   text-decoration: none;
@@ -320,6 +351,7 @@ p { margin: 0 0 var(--space-4); }
   font-weight: 500;
   padding: 6px 8px;
   border-radius: var(--radius);
+  white-space: nowrap;
 }
 .nav-link:hover { background: var(--plate); color: var(--ink); }
 .flow-host { position: relative; }
@@ -392,7 +424,40 @@ p { margin: 0 0 var(--space-4); }
   filter: none;
 }
 .lang a.flow-on, .lang a.flow-leave { color: var(--on-face); }
-.mob { display: none; }
+.mob { display: none; flex: none; }
+.nav-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+.nav-panel > .nav-link,
+.nav-panel > .btn,
+.nav-panel .who-row .ghost,
+.nav-panel .who-row button.who,
+.nav-panel .menu-pop .btn {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  justify-content: center;
+  white-space: nowrap;
+}
+.nav-panel .who-row,
+.nav-panel .account-menu { display: grid; gap: 8px; width: 100%; }
+.nav-panel .lang { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+.nav-panel .account-menu.is-ready { display: grid; }
+.nav-panel .account-menu.is-ready .menu-pop,
+.nav-panel .menu-pop {
+  position: static;
+  display: grid !important;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
 .who {
   display: inline-flex;
   align-items: center;
@@ -403,6 +468,8 @@ p { margin: 0 0 var(--space-4); }
   text-decoration: none;
 }
 button.who {
+  max-width: 14rem;
+  min-width: 0;
   min-height: 40px;
   padding: 4px 12px 4px 4px;
   border-radius: var(--radius);
@@ -412,6 +479,12 @@ button.who {
   box-shadow: inset 0 var(--block-bevel) 0 var(--bevel), inset 0 calc(var(--block-lip) * -1) 0 var(--lip);
   font-family: var(--mono);
   font-size: 12px;
+}
+button.who span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 button.who::after {
   content: "";
@@ -829,19 +902,17 @@ input:focus, textarea:focus, select:focus {
 @media (max-width: 980px) {
   .facts { grid-template-columns: 1fr 1fr; }
 }
+@media (max-width: 980px) {
+  .desk { display: none; }
+  .mob { display: block; }
+}
 @media (max-width: 860px) {
   .hero { grid-template-columns: 1fr; }
-  .desk, .top > .tools { display: none; }
-  .mob { display: block; margin-left: auto; }
-  .nav-panel {
-    display: grid;
-    gap: 8px;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--rule);
-  }
-  .nav-panel .who-row { margin-top: 4px; }
   .user-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .top-row > .tools { display: none; }
+  .mob { margin-left: auto; }
 }
 @media (max-width: 640px) {
   .facts { grid-template-columns: 1fr; }
